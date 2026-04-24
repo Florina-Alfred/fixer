@@ -1,0 +1,33 @@
+name: Duplicate Finder
+image: alpine:latest
+category: find
+level: intermediate
+goal: Use find to locate duplicate files, empty directories, and files with specific permissions
+description: Master the find command to discover duplicate files by size, empty directories, and files with unusual permissions in a complex directory structure.
+setup:
+  - "apk add --no-cache bash"
+  - "mkdir -p /app/data/{docs,images,backups,logs,config}"
+  - "echo 'document content' > /app/data/docs/report.txt"
+  - "echo 'document content' > /app/data/backups/report.txt"
+  - "echo 'unique content 1' > /app/data/docs/notes.txt"
+  - "echo 'unique content 2' > /app/data/config/settings.conf"
+  - "echo 'config data' > /app/data/config/app.conf"
+  - "echo 'log entry' > /app/data/logs/app.log"
+  - "echo 'log entry' > /app/data/logs/backup.log"
+  - "mkdir -p /app/data/docs/empty1/empty2"
+  - "mkdir -p /app/data/temp_empty"
+  - "touch /app/data/docs/empty_file.txt"
+  - "touch /app/data/backups/another_empty.txt"
+  - "echo 'world writable' > /app/data/config/insecure.conf"
+  - "chmod 777 /app/data/config/insecure.conf"
+  - "echo 'suid file' > /app/data/config/special.bin"
+  - "chmod 4755 /app/data/config/special.bin"
+  - "find /app/data -type f -exec md5sum {} \\; > /app/data/checksums.txt"
+validate:
+  - "bash /validate/validate.sh"
+hints:
+  - "Use 'find -type f' to find files, 'find -type d' for directories"
+  - "Use '-empty' to find empty files or directories"
+  - "Use '-size' with units like +0c or -1k to filter by size"
+  - "Use '-perm' to find files with specific permissions"
+  - "Use '-newer' or '-mtime' to find files by modification time"

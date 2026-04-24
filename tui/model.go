@@ -88,24 +88,35 @@ type Model struct {
 }
 
 type styles struct {
-	header           lipgloss.Style
-	leftPanel        lipgloss.Style
-	rightPanel       lipgloss.Style
-	bottomBar        lipgloss.Style
-	selectedTool     lipgloss.Style
-	unselectedTool   lipgloss.Style
-	selectedLab      lipgloss.Style
-	unselectedLab    lipgloss.Style
-	activeLab        lipgloss.Style
-	idleLab          lipgloss.Style
-	title            lipgloss.Style
-	modeTUI          lipgloss.Style
-	hint             lipgloss.Style
-	goal             lipgloss.Style
-	checkPassed      lipgloss.Style
-	checkFailed      lipgloss.Style
-	logStyle         lipgloss.Style
-	border           lipgloss.Style
+	header            lipgloss.Style
+	sidebar           lipgloss.Style
+	tasksBar          lipgloss.Style
+	tasksBarSep       lipgloss.Style
+	infoPanel         lipgloss.Style
+	bottomBar         lipgloss.Style
+	panelTitle        lipgloss.Style
+	taskTitle         lipgloss.Style
+	infoLabel         lipgloss.Style
+	selectedTool      lipgloss.Style
+	unselectedTool    lipgloss.Style
+	selectedTask      lipgloss.Style
+	unselectedTask    lipgloss.Style
+	activeLab         lipgloss.Style
+	idleLab           lipgloss.Style
+	stoppedLab        lipgloss.Style
+	title             lipgloss.Style
+	bottomBarMode     lipgloss.Style
+	dimText           lipgloss.Style
+	hint              lipgloss.Style
+	goal              lipgloss.Style
+	checkPassed       lipgloss.Style
+	checkFailed       lipgloss.Style
+	logStyle          lipgloss.Style
+	levelBadge        lipgloss.Style
+	goalLabel         lipgloss.Style
+	goalText          lipgloss.Style
+	hintLabel         lipgloss.Style
+	border            lipgloss.Style
 }
 
 func defaultStyles() *styles {
@@ -119,48 +130,80 @@ func defaultStyles() *styles {
 	white := lipgloss.Color("#FFFFFF")
 	darkGray := lipgloss.Color("#343A40")
 
-	s.header = lipgloss.NewStyle().
+s.header = lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#FF6B35")).
-		PaddingLeft(2)
+		PaddingLeft(2).
+		MarginBottom(1)
 
-	s.title = lipgloss.NewStyle().
+	s.taskTitle = lipgloss.NewStyle().
 		Bold(true).
 		Foreground(white).
+		Background(lipgloss.Color("#1a1a2e")).
+		Padding(0, 1)
+
+	s.infoLabel = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(blue)
+
+	s.panelTitle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(gray).
+		Underline(true).
+		PaddingBottom(1)
+
+	s.sidebar = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(gray).
+		Padding(1, 2).
 		Width(14)
 
-	s.leftPanel = lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder()).
+	s.tasksBar = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(gray).
 		Padding(1, 2)
 
-	s.rightPanel = lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder()).
+	s.tasksBarSep = lipgloss.NewStyle().
+		Foreground(gray).
+		Padding(0, 1)
+
+	s.infoPanel = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(gray).
 		Padding(1, 2)
+
+	s.selectedTask = lipgloss.NewStyle().
+		Foreground(white).
+		Bold(true).
+		Background(lipgloss.Color("#1a1a2e")).
+		Padding(0, 1)
+
+	s.unselectedTask = lipgloss.NewStyle().
+		Foreground(gray).
+		Padding(0, 1)
 
 	s.bottomBar = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(white).
+		Foreground(gray).
 		Background(darkGray).
 		Padding(0, 2).
-		Width(0)
+		MarginTop(1)
+
+	s.bottomBarMode = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(green)
+
+	s.dimText = lipgloss.NewStyle().
+		Foreground(gray)
 
 	s.selectedTool = lipgloss.NewStyle().
-		Foreground(blue).
-		Bold(true).
-		Background(lipgloss.Color("#1a1a2e"))
-
-	s.unselectedTool = lipgloss.NewStyle().
-		Foreground(gray)
-
-	s.selectedLab = lipgloss.NewStyle().
 		Foreground(white).
 		Bold(true).
-		Background(lipgloss.Color("#1a1a2e"))
+		Background(lipgloss.Color("#1a1a2e")).
+		Padding(0, 1)
 
-	s.unselectedLab = lipgloss.NewStyle().
-		Foreground(gray)
+	s.unselectedTool = lipgloss.NewStyle().
+		Foreground(gray).
+		Padding(0, 1)
 
 	s.activeLab = lipgloss.NewStyle().
 		Foreground(green).
@@ -170,9 +213,8 @@ func defaultStyles() *styles {
 		Foreground(yellow).
 		Bold(true)
 
-	s.modeTUI = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(green)
+	s.stoppedLab = lipgloss.NewStyle().
+		Foreground(gray)
 
 	s.hint = lipgloss.NewStyle().
 		Foreground(gray)
@@ -182,10 +224,12 @@ func defaultStyles() *styles {
 		Italic(true)
 
 	s.checkPassed = lipgloss.NewStyle().
-		Foreground(green)
+		Foreground(green).
+		Bold(true)
 
 	s.checkFailed = lipgloss.NewStyle().
-		Foreground(red)
+		Foreground(red).
+		Bold(true)
 
 	s.logStyle = lipgloss.NewStyle().
 		Foreground(gray)
