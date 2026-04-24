@@ -1,0 +1,20 @@
+name: Grep Secret Hunter
+image: python:3.11-slim
+category: grep
+level: intermediate
+goal: "Extract hidden secrets from log files using grep"
+description: |
+  A realistic log analysis exercise where you'll hunt for hidden secrets
+  scattered across multiple log files. You'll learn to use grep effectively
+  to find patterns, extract specific data, and search recursively.
+
+setup:
+  - "chmod +x /setup/setup.sh && /setup/setup.sh"
+validate:
+  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+hints:
+  - "Use 'grep PATTERN file' to search for patterns in a file"
+  - "Use 'grep -o' to output only the matching parts"
+  - "Use 'grep -r' to search recursively through directories"
+  - "Use 'grep -E' for extended regex patterns"
+  - "Secrets follow patterns like SECRET_XXXX, AUTH_CODE_XXXX, etc."

@@ -1,0 +1,21 @@
+name: Awk Sales Reports
+image: python:3.11-slim
+category: awk
+level: intermediate
+goal: "Master awk for data analysis, calculations, and reporting"
+description: |
+  Learn to use awk for real-world data analysis tasks including revenue
+  calculations, commission tracking, inventory management, and regional
+  sales summaries. Work with CSV files and custom delimited formats.
+
+setup:
+  - "chmod +x /setup/setup.sh && /setup/setup.sh"
+validate:
+  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+hints:
+  - "Use 'awk -F',' for CSV files"
+  - "Fields are $1, $2, $3... with $0 as entire line"
+  - "Use {print} block for pattern matching and actions"
+  - "Use END block for summaries and totals"
+  - "Use associative arrays: array[key]++ or array[key] += value"
+  - "Math operations: +, -, *, /, % work directly in awk"

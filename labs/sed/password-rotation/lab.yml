@@ -1,0 +1,21 @@
+name: Sed Password Rotation
+image: python:3.11-slim
+category: sed
+level: intermediate
+goal: "Master sed for text transformation and password rotation"
+description: |
+  Learn to use sed for real-world text transformation tasks including
+  password rotation, API key updates, and log sanitization. Practice
+  in-place editing, pattern matching, and backreferences.
+
+setup:
+  - "chmod +x /setup/setup.sh && /setup/setup.sh"
+validate:
+  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+hints:
+  - "Use 'sed -i' for in-place file editing"
+  - "Use 'sed s/old/new/g' for global substitution"
+  - "Use backreferences: s/\\(pattern\\)/\\1replacement/"
+  - "Use -e flag for multiple substitutions: sed -e 's/a/b/' -e 's/c/d/'"
+  - "Escape special characters: \\., \\*, \\[, \\]"
+  - "Use word boundaries and character classes for precise matching"

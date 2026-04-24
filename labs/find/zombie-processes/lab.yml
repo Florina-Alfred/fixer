@@ -1,0 +1,20 @@
+name: Find Zombie Processes
+image: python:3.11-slim
+category: find
+level: intermediate
+goal: "Master find command to locate files by various criteria"
+description: |
+  Learn to use find effectively to locate files by name, size, permissions,
+  and hidden status. This lab simulates a real-world scenario where you need
+  to audit a service directory for configuration files and security issues.
+
+setup:
+  - "mkdir -p /app/scripts && chmod +x /setup/setup.sh && /setup/setup.sh"
+validate:
+  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+hints:
+  - "Use 'find PATH -name PATTERN' to search by filename"
+  - "Use 'find PATH -size +/-SIZE' to filter by file size"
+  - "Use 'find PATH -perm MODE' to filter by permissions"
+  - "Use 'find PATH -type f' for files only, 'd' for directories"
+  - "Use -o (OR) and -a (AND) to combine conditions"

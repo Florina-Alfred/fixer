@@ -23,15 +23,15 @@ func TestNewModel(t *testing.T) {
 
 func TestNewModel_WithLabs(t *testing.T) {
 	labsList := []labs.Lab{
-		{Name: "Lab A", Image: "alpine:latest", Goal: "Do stuff"},
-		{Name: "Lab B", Image: "nginx:latest", Goal: "Fix nginx"},
+		{Name: "Lab A", Image: "alpine:latest", Goal: "Do stuff", Category: "grep"},
+		{Name: "Lab B", Image: "nginx:latest", Goal: "Fix nginx", Category: "grep"},
 	}
 	m := NewModel(labsList)
-	if len(m.labs) != 2 {
-		t.Errorf("expected 2 labs, got %d", len(m.labs))
+	if len(m.toolGroups) != 1 {
+		t.Errorf("expected 1 tool group, got %d", len(m.toolGroups))
 	}
-	if m.selectedIdx != 0 {
-		t.Errorf("expected selectedIdx=0, got %d", m.selectedIdx)
+	if len(m.toolGroups[0].Labs) != 2 {
+		t.Errorf("expected 2 labs in first group, got %d", len(m.toolGroups[0].Labs))
 	}
 }
 
@@ -50,8 +50,7 @@ func TestNormalizeName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			m := NewModel(nil)
-			result := m.normalizeName(tt.input)
+			result := normalizeName(tt.input)
 			if result != tt.expected {
 				t.Errorf("normalizeName(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
@@ -116,34 +115,40 @@ func TestLog_CapsAtMax(t *testing.T) {
 }
 
 func TestHandleDockerComplete_Start(t *testing.T) {
-	m := NewModel(nil)
+	m := NewModel([]labs.Lab{
+		{Name: "Test Lab", Image: "alpine:latest", Category: "grep"},
+	})
 
 	msg := DockerOpComplete{
-		Op:   "start",
-		Err:  nil,
-		ID:   "abc123def456",
-		Out:  "",
-		Passed: false,
+		Op:      "start",
+		Err:     nil,
+		ID:      "abc123def456",
+		Out:     "",
+		Passed:  false,
+		Command: "",
 	}
 	m.handleDockerComplete(msg)
 
-	if m.containerID != "abc123def456" {
-		t.Errorf("expected containerID 'abc123def456', got %q", m.containerID)
+	if len(m.logBuffer) != 1 {
+		t.Errorf("expected 1 log entry, got %d", len(m.logBuffer))
 	}
-	if len(m.logBuffer) != 0 {
-		t.Errorf("expected no log entries, got %d", len(m.logBuffer))
+	if !strings.Contains(m.logBuffer[0], "ready") {
+		t.Errorf("expected 'ready' in log, got %q", m.logBuffer[0])
 	}
 }
 
 func TestHandleDockerComplete_StartError(t *testing.T) {
-	m := NewModel(nil)
+	m := NewModel([]labs.Lab{
+		{Name: "Test Lab", Image: "alpine:latest", Category: "grep"},
+	})
 
 	msg := DockerOpComplete{
-		Op:     "start",
-		Err:    errors.New("docker not found"),
-		ID:     "",
-		Out:    "",
-		Passed: false,
+		Op:      "start",
+		Err:     errors.New("docker not found"),
+		ID:      "",
+		Out:     "",
+		Passed:  false,
+		Command: "",
 	}
 	m.handleDockerComplete(msg)
 
@@ -156,11 +161,9 @@ func TestHandleDockerComplete_StartError(t *testing.T) {
 }
 
 func TestHandleDockerComplete_Check(t *testing.T) {
-	m := NewModel(nil)
-	m.activeLab = labs.Lab{
-		Name:   "Test Lab",
-		Checks: []string{"check1", "check2"},
-	}
+	m := NewModel([]labs.Lab{
+		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"check1", "check2"}},
+	})
 
 	// First check passes
 	m.handleDockerComplete(DockerOpComplete{
@@ -201,11 +204,9 @@ func TestHandleDockerComplete_Check(t *testing.T) {
 }
 
 func TestHandleDockerComplete_CheckFail(t *testing.T) {
-	m := NewModel(nil)
-	m.activeLab = labs.Lab{
-		Name:   "Test Lab",
-		Checks: []string{"check1", "check2"},
-	}
+	m := NewModel([]labs.Lab{
+		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"check1", "check2"}},
+	})
 
 	// Both fail
 	m.handleDockerComplete(DockerOpComplete{
@@ -235,13 +236,11 @@ func TestHandleDockerComplete_CheckFail(t *testing.T) {
 }
 
 func TestHandleDockerComplete_CheckCommandAssociation(t *testing.T) {
-	m := NewModel(nil)
-	m.activeLab = labs.Lab{
-		Name:   "Test Lab",
-		Checks: []string{"test -f /tmp/solved", "curl -f http://localhost"},
-	}
+	m := NewModel([]labs.Lab{
+		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"test -f /tmp/solved", "curl -f http://localhost"}},
+	})
 
-	for _, check := range m.activeLab.Checks {
+	for _, check := range m.toolGroups[0].Labs[0].Lab.Validate {
 		m.handleDockerComplete(DockerOpComplete{
 			Op:      "check",
 			Command: check,
@@ -253,18 +252,17 @@ func TestHandleDockerComplete_CheckCommandAssociation(t *testing.T) {
 		t.Fatal("expected lastValidation")
 	}
 	for i, cr := range m.lastValidation.Checks {
-		if cr.Command != m.activeLab.Checks[i] {
-			t.Errorf("check %d: expected command %q, got %q", i, m.activeLab.Checks[i], cr.Command)
+		expectedCheck := m.toolGroups[0].Labs[0].Lab.Validate[i]
+		if cr.Command != expectedCheck {
+			t.Errorf("check %d: expected command %q, got %q", i, expectedCheck, cr.Command)
 		}
 	}
 }
 
 func TestHandleDockerComplete_CheckNotAllDone(t *testing.T) {
-	m := NewModel(nil)
-	m.activeLab = labs.Lab{
-		Name:   "Test Lab",
-		Checks: []string{"a", "b", "c"},
-	}
+	m := NewModel([]labs.Lab{
+		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"a", "b", "c"}},
+	})
 
 	// Only 2 of 3 checks done
 	m.handleDockerComplete(DockerOpComplete{
@@ -283,5 +281,63 @@ func TestHandleDockerComplete_CheckNotAllDone(t *testing.T) {
 	}
 	if m.lastValidation != nil {
 		t.Error("expected lastValidation to be nil until all checks complete")
+	}
+}
+
+func TestContainerStates(t *testing.T) {
+	m := NewModel([]labs.Lab{
+		{Name: "Lab A", Image: "alpine:latest", Category: "grep"},
+	})
+
+	// Initial state should be stopped
+	if m.toolGroups[0].Labs[0].State != StateStopped {
+		t.Errorf("expected StateStopped, got %v", m.toolGroups[0].Labs[0].State)
+	}
+
+	// Set to active
+	m.setContainerActive(true)
+	if m.toolGroups[0].Labs[0].State != StateActive {
+		t.Errorf("expected StateActive, got %v", m.toolGroups[0].Labs[0].State)
+	}
+
+	// Set to idle
+	m.setContainerActive(false)
+	if m.toolGroups[0].Labs[0].State != StateIdle {
+		t.Errorf("expected StateIdle, got %v", m.toolGroups[0].Labs[0].State)
+	}
+
+	// Set to stopped
+	m.setContainerStateStopped()
+	if m.toolGroups[0].Labs[0].State != StateStopped {
+		t.Errorf("expected StateStopped, got %v", m.toolGroups[0].Labs[0].State)
+	}
+}
+
+func TestGroupLabsByCategory(t *testing.T) {
+	labsList := []labs.Lab{
+		{Name: "Lab A", Image: "alpine:latest", Category: "grep"},
+		{Name: "Lab B", Image: "nginx:latest", Category: "find"},
+		{Name: "Lab C", Image: "python:latest", Category: "grep"},
+	}
+
+	groups := groupLabsByCategory(labsList)
+
+	if len(groups) != 2 {
+		t.Errorf("expected 2 groups, got %d", len(groups))
+	}
+
+	// Find grep group
+	var grepGroup *ToolGroup
+	for i := range groups {
+		if groups[i].Category == "grep" {
+			grepGroup = &groups[i]
+			break
+		}
+	}
+	if grepGroup == nil {
+		t.Fatal("grep group not found")
+	}
+	if len(grepGroup.Labs) != 2 {
+		t.Errorf("expected 2 labs in grep group, got %d", len(grepGroup.Labs))
 	}
 }

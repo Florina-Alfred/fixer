@@ -116,7 +116,7 @@ func TestLoad_Single(t *testing.T) {
 	data := `name: Single Lab
 image: redis:latest
 goal: Fix redis config
-checks:
+validate:
   - "redis-cli ping"
 hints:
   - "Check redis config"
@@ -141,8 +141,8 @@ hints:
 	if lab.Goal != "Fix redis config" {
 		t.Errorf("expected 'Fix redis config', got '%s'", lab.Goal)
 	}
-	if len(lab.Checks) != 1 {
-		t.Errorf("expected 1 check, got %d", len(lab.Checks))
+	if len(lab.Validate) != 1 {
+		t.Errorf("expected 1 validation, got %d", len(lab.Validate))
 	}
 	if len(lab.Hints) != 2 {
 		t.Errorf("expected 2 hints, got %d", len(lab.Hints))

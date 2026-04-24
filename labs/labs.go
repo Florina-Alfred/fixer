@@ -12,17 +12,19 @@ import (
 
 // Lab represents a declarative training lab configuration.
 type Lab struct {
-	Name     string   `yaml:"name"`
-	Image    string   `yaml:"image"`
-	Goal     string   `yaml:"goal"`
-	Setup    []string `yaml:"setup"`
-	Checks   []string `yaml:"checks"`
-	Hints    []string `yaml:"hints"`
-	Category string   `yaml:"category"`
-	Level    string   `yaml:"level"`
+	Name       string   `yaml:"name"`
+	Image      string   `yaml:"image"`
+	Goal       string   `yaml:"goal"`
+	Setup      []string `yaml:"setup"`
+	Validate   []string `yaml:"validate"`
+	Hints      []string `yaml:"hints"`
+	Category   string   `yaml:"category"`
+	Level      string   `yaml:"level"`
+	Description string  `yaml:"description"`
 }
 
-// LoadAll loads all lab files (*.yaml, *.yml) from the given directory.
+// LoadAll loads all labs from the given directory.
+// Supports both flat YAML files and folder-based structure (category/lab/lab.yml).
 func LoadAll(dir string) ([]Lab, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -30,26 +32,68 @@ func LoadAll(dir string) ([]Lab, error) {
 	}
 
 	var labs []Lab
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".yml") && !strings.HasSuffix(name, ".yaml") {
-			continue
-		}
 
+	for _, entry := range entries {
+		name := entry.Name()
 		path := filepath.Join(dir, name)
-		lab, err := Load(path)
-		if err != nil {
-			return nil, fmt.Errorf("loading %s: %w", path, err)
+
+		if entry.IsDir() {
+			// Check for folder-based structure: category/lab/lab.yml
+			categoryLabs, err := loadCategoryDir(path)
+			if err != nil {
+				continue // Skip invalid category directories
+			}
+			labs = append(labs, categoryLabs...)
+		} else if strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".yaml") {
+			// Support flat YAML files for backward compatibility
+			lab, err := Load(path)
+			if err != nil {
+				return nil, fmt.Errorf("loading %s: %w", path, err)
+			}
+			labs = append(labs, lab)
 		}
-		labs = append(labs, lab)
 	}
 
 	sort.Slice(labs, func(i, j int) bool {
 		return labs[i].Name < labs[j].Name
 	})
+
+	return labs, nil
+}
+
+// loadCategoryDir loads labs from a category directory (e.g., grep/, find/).
+func loadCategoryDir(categoryDir string) ([]Lab, error) {
+	entries, err := os.ReadDir(categoryDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var labs []Lab
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Look for lab.yml or lab.yaml in the subdirectory
+		labDir := filepath.Join(categoryDir, entry.Name())
+		ymlPath := filepath.Join(labDir, "lab.yml")
+		yamlPath := filepath.Join(labDir, "lab.yaml")
+
+		var labPath string
+		if _, err := os.Stat(ymlPath); err == nil {
+			labPath = ymlPath
+		} else if _, err := os.Stat(yamlPath); err == nil {
+			labPath = yamlPath
+		} else {
+			continue // No lab file found
+		}
+
+		lab, err := Load(labPath)
+		if err != nil {
+			return nil, fmt.Errorf("loading %s: %w", labPath, err)
+		}
+		labs = append(labs, lab)
+	}
 
 	return labs, nil
 }

@@ -48,7 +48,7 @@ for {
 		}
 
 		// Get state before shell
-		containerName, containerID, activeLab, selectedIdx := m.GetState()
+		containerName := m.ContainerName()
 
 		if err := pty.ExecuteShell(containerName); err != nil {
 			fmt.Fprintf(os.Stderr, "Shell error: %v\n", err)
@@ -59,10 +59,11 @@ for {
 
 		// Check if container is still running
 		running, _ := docker.New().IsRunning(containerName)
-		if running {
-			// Restore state
-			m = tui.NewModelWithState(labList, containerName, containerID, activeLab, selectedIdx)
+		if !running {
+			// Container was stopped, exit
+			return
 		}
+		// Continue loop to restore TUI with existing state
 	}
 }
 

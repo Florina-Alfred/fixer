@@ -52,9 +52,32 @@ func (c *Client) Setup(containerName string, commands []string) error {
 	return nil
 }
 
+// Validate runs validation commands and returns true if all pass.
+func (c *Client) Validate(containerName string, commands []string) (bool, string, error) {
+	var output strings.Builder
+	allPassed := true
+
+	for _, cmd := range commands {
+		out, err := c.execCommandWithOutput(containerName, cmd)
+		output.WriteString(out)
+		if err != nil {
+			allPassed = false
+			output.WriteString(fmt.Sprintf("\nError running validation: %v\n", err))
+		}
+	}
+
+	return allPassed, output.String(), nil
+}
+
 func (c *Client) execCommand(containerName, command string) error {
 	cmd := exec.Command("docker", "exec", containerName, "sh", "-c", command)
 	return cmd.Run()
+}
+
+func (c *Client) execCommandWithOutput(containerName, command string) (string, error) {
+	cmd := exec.Command("docker", "exec", containerName, "sh", "-c", command)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 // Stop stops a running container.
@@ -73,28 +96,6 @@ func (c *Client) Remove(name string) error {
 func (c *Client) CleanUp(name string) error {
 	_ = c.Stop(name)
 	return c.Remove(name)
-}
-
-// Validate runs the given command inside the container and returns its exit status.
-// A return code of 0 means the check passed.
-func (c *Client) Validate(containerName, command string) (bool, error) {
-	cmd := exec.Command("docker", "exec", containerName, "sh", "-c", command)
-	err := cmd.Run()
-	if err != nil {
-		// Non-zero exit means the check failed.
-		return false, nil
-	}
-	return true, nil
-}
-
-// ValidateWithOutput runs the given command inside the container and returns stdout.
-func (c *Client) ValidateWithOutput(containerName, command string) (string, error) {
-	cmd := exec.Command("docker", "exec", containerName, "sh", "-c", command)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("validation failed: %s", string(out))
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 // IsRunning checks if a container is currently running.

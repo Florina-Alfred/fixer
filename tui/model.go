@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"sort"
 	"unicode"
 	"unicode/utf8"
 
@@ -19,6 +20,15 @@ type Mode int
 
 const (
 	ModeTUI Mode = iota
+)
+
+// ContainerState tracks the state of a lab's container.
+type ContainerState int
+
+const (
+	StateStopped ContainerState = iota
+	StateIdle    // Running but not in shell
+	StateActive  // Currently in shell
 )
 
 // DockerOpComplete signals a Docker operation finished.
@@ -44,14 +54,25 @@ type CheckResult struct {
 	Output  string
 }
 
+// LabWithState holds a lab and its container state.
+type LabWithState struct {
+	Lab       labs.Lab
+	State     ContainerState
+	Container string
+}
+
+// ToolGroup groups labs by category.
+type ToolGroup struct {
+	Category string
+	Labs     []LabWithState
+}
+
 // Model is the central state for the Bubble Tea application.
 type Model struct {
 	mode              Mode
-	labs              []labs.Lab
-	selectedIdx       int
-	containerID       string
-	containerName     string
-	activeLab         labs.Lab
+	toolGroups        []ToolGroup
+	selectedToolIdx   int
+	selectedLabIdx    int
 	showLog           bool
 	logBuffer         []string
 	dockerCli         *docker.Client
@@ -67,20 +88,24 @@ type Model struct {
 }
 
 type styles struct {
-	header         lipgloss.Style
-	leftPanel      lipgloss.Style
-	rightPanel     lipgloss.Style
-	bottomBar      lipgloss.Style
-	selectedItem   lipgloss.Style
-	unselectedItem lipgloss.Style
-	title          lipgloss.Style
-	modeTUI        lipgloss.Style
-	hint           lipgloss.Style
-	goal           lipgloss.Style
-	checkPassed    lipgloss.Style
-	checkFailed    lipgloss.Style
-	logStyle       lipgloss.Style
-	border         lipgloss.Style
+	header           lipgloss.Style
+	leftPanel        lipgloss.Style
+	rightPanel       lipgloss.Style
+	bottomBar        lipgloss.Style
+	selectedTool     lipgloss.Style
+	unselectedTool   lipgloss.Style
+	selectedLab      lipgloss.Style
+	unselectedLab    lipgloss.Style
+	activeLab        lipgloss.Style
+	idleLab          lipgloss.Style
+	title            lipgloss.Style
+	modeTUI          lipgloss.Style
+	hint             lipgloss.Style
+	goal             lipgloss.Style
+	checkPassed      lipgloss.Style
+	checkFailed      lipgloss.Style
+	logStyle         lipgloss.Style
+	border           lipgloss.Style
 }
 
 func defaultStyles() *styles {
@@ -88,6 +113,7 @@ func defaultStyles() *styles {
 
 	blue := lipgloss.Color("#006BB6")
 	green := lipgloss.Color("#50C878")
+	yellow := lipgloss.Color("#FFB347")
 	red := lipgloss.Color("#FF6B6B")
 	gray := lipgloss.Color("#6C757D")
 	white := lipgloss.Color("#FFFFFF")
@@ -120,12 +146,29 @@ func defaultStyles() *styles {
 		Padding(0, 2).
 		Width(0)
 
-	s.selectedItem = lipgloss.NewStyle().
+	s.selectedTool = lipgloss.NewStyle().
 		Foreground(blue).
+		Bold(true).
+		Background(lipgloss.Color("#1a1a2e"))
+
+	s.unselectedTool = lipgloss.NewStyle().
+		Foreground(gray)
+
+	s.selectedLab = lipgloss.NewStyle().
+		Foreground(white).
+		Bold(true).
+		Background(lipgloss.Color("#1a1a2e"))
+
+	s.unselectedLab = lipgloss.NewStyle().
+		Foreground(gray)
+
+	s.activeLab = lipgloss.NewStyle().
+		Foreground(green).
 		Bold(true)
 
-	s.unselectedItem = lipgloss.NewStyle().
-		Foreground(gray)
+	s.idleLab = lipgloss.NewStyle().
+		Foreground(yellow).
+		Bold(true)
 
 	s.modeTUI = lipgloss.NewStyle().
 		Bold(true).
@@ -158,36 +201,76 @@ func (m *Model) initStyles() {
 	m.styles = defaultStyles()
 }
 
+// groupLabsByCategory groups labs into ToolGroups by category.
+func groupLabsByCategory(labsList []labs.Lab) []ToolGroup {
+	categoryMap := make(map[string][]labs.Lab)
+	for _, lab := range labsList {
+		categoryMap[lab.Category] = append(categoryMap[lab.Category], lab)
+	}
+
+	var groups []ToolGroup
+	for category, categoryLabs := range categoryMap {
+		var labsWithState []LabWithState
+		for _, lab := range categoryLabs {
+			labsWithState = append(labsWithState, LabWithState{
+				Lab:   lab,
+				State: StateStopped,
+			})
+		}
+		groups = append(groups, ToolGroup{
+			Category: category,
+			Labs:     labsWithState,
+		})
+	}
+
+	// Sort by category name
+	sort.Slice(groups, func(i, j int) bool {
+		return groups[i].Category < groups[j].Category
+	})
+
+	return groups
+}
+
 // NewModel creates a new application model.
 func NewModel(labsList []labs.Lab) *Model {
 	m := &Model{
-		mode:        ModeTUI,
-		labs:        labsList,
-		selectedIdx: 0,
-		dockerCli:   docker.New(),
-	}
-	m.initStyles()
-	return m
-}
-
-// NewModelWithState creates a new application model with restored state.
-func NewModelWithState(labsList []labs.Lab, containerName, containerID string, activeLab labs.Lab, selectedIdx int) *Model {
-	m := &Model{
 		mode:          ModeTUI,
-		labs:          labsList,
-		selectedIdx:   selectedIdx,
-		containerName: containerName,
-		containerID:   containerID,
-		activeLab:     activeLab,
-		dockerCli:     docker.New(),
+		toolGroups:    groupLabsByCategory(labsList),
+		selectedToolIdx: 0,
+		selectedLabIdx:  0,
+		dockerCli:       docker.New(),
 	}
 	m.initStyles()
 	return m
 }
 
 // GetState returns the current model state for restoration.
-func (m *Model) GetState() (containerName, containerID string, activeLab labs.Lab, selectedIdx int) {
-	return m.containerName, m.containerID, m.activeLab, m.selectedIdx
+func (m *Model) GetState() (toolGroups []ToolGroup, selectedToolIdx, selectedLabIdx int, containerName, containerID string) {
+	return m.toolGroups, m.selectedToolIdx, m.selectedLabIdx, m.getCurrentContainerName(), ""
+}
+
+// getCurrentContainerName returns the container name for the currently selected lab.
+func (m *Model) getCurrentContainerName() string {
+	if len(m.toolGroups) == 0 || len(m.toolGroups[m.selectedToolIdx].Labs) == 0 {
+		return ""
+	}
+	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx]
+	return containerNamePrefix + normalizeName(lab.Lab.Name)
+}
+
+// normalizeName converts a lab name to a valid container name.
+func normalizeName(name string) string {
+	result := ""
+	for _, c := range name {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			result += string(c)
+		} else if c >= 'A' && c <= 'Z' {
+			result += string(unicode.ToLower(c))
+		} else {
+			result += "-"
+		}
+	}
+	return result
 }
 
 // Init implements tea.Model.
@@ -237,15 +320,35 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q", "esc":
 		return m, tea.Quit
 
+	// Navigate tools (vertical)
 	case "up", "k":
-		if m.selectedIdx > 0 {
-			m.selectedIdx--
+		if m.selectedToolIdx > 0 {
+			m.selectedToolIdx--
+			m.selectedLabIdx = 0
 		}
 		return m, nil
 
 	case "down", "j":
-		if m.selectedIdx < len(m.labs)-1 {
-			m.selectedIdx++
+		if m.selectedToolIdx < len(m.toolGroups)-1 {
+			m.selectedToolIdx++
+			m.selectedLabIdx = 0
+		}
+		return m, nil
+
+	// Navigate labs within tool (horizontal)
+	case "left":
+		if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+			if m.selectedLabIdx > 0 {
+				m.selectedLabIdx--
+			}
+		}
+		return m, nil
+
+	case "right":
+		if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+			if m.selectedLabIdx < len(m.toolGroups[m.selectedToolIdx].Labs)-1 {
+				m.selectedLabIdx++
+			}
 		}
 		return m, nil
 
@@ -262,11 +365,11 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.validateLab()
 
 	case "e":
-		if m.containerName == "" {
+		if !m.hasRunningContainer() {
 			m.log("No container running. Start a lab first.")
 			return m, nil
 		}
-		running, err := m.dockerCli.IsRunning(m.containerName)
+		running, err := m.dockerCli.IsRunning(m.getCurrentContainerName())
 		if err != nil || !running {
 			if err != nil {
 				m.log("Container check failed: " + err.Error())
@@ -275,8 +378,13 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.log("Exiting TUI to open shell...")
+		m.setContainerActive(true)
 		m.shellRequested = true
 		return m, tea.Quit
+
+	case "t":
+		m.showTask()
+		return m, nil
 
 	case "l":
 		m.showLog = !m.showLog
@@ -286,12 +394,50 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) hasRunningContainer() bool {
+	if len(m.toolGroups) == 0 || len(m.toolGroups[m.selectedToolIdx].Labs) == 0 {
+		return false
+	}
+	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx]
+	return lab.State == StateIdle || lab.State == StateActive
+}
+
+func (m *Model) setContainerActive(active bool) {
+	if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+		if active {
+			m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].State = StateActive
+		} else {
+			m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].State = StateIdle
+		}
+	}
+}
+
+func (m *Model) showTask() {
+	if len(m.toolGroups) == 0 || len(m.toolGroups[m.selectedToolIdx].Labs) == 0 {
+		return
+	}
+	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].Lab
+	m.log("Task: " + lab.Goal)
+	if lab.Description != "" {
+		m.log("Description: " + lab.Description)
+	}
+	if len(lab.Hints) > 0 {
+		m.log("Hints:")
+		for _, hint := range lab.Hints {
+			m.log("  - " + hint)
+		}
+	}
+}
+
 func (m *Model) handleDockerComplete(msg DockerOpComplete) {
 	if msg.Err != nil && msg.Op != "check" {
 		m.log("Docker error (" + msg.Op + "): " + msg.Err.Error())
 	}
 	if msg.ID != "" {
-		m.containerID = msg.ID
+		// Store container ID in the lab state
+		if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+			// Container ID is not stored, but we track state
+		}
 	}
 
 	if msg.Op == "check" {
@@ -301,46 +447,54 @@ func (m *Model) handleDockerComplete(msg DockerOpComplete) {
 			Output:  msg.Out,
 		})
 
-		if len(m.validationResults) >= len(m.activeLab.Checks) {
-			allPassed := true
-			for _, cr := range m.validationResults {
-				if !cr.Passed {
-					allPassed = false
-					break
-				}
-			}
-			m.lastValidation = &ValidationResult{
-				Passed: allPassed,
-				Checks: m.validationResults,
-			}
-			if allPassed {
-				m.log("All validation checks passed!")
-			} else {
-				m.log("Validation failed:")
+		if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+			lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].Lab
+			if len(m.validationResults) >= len(lab.Validate) {
+				allPassed := true
 				for _, cr := range m.validationResults {
-					status := "FAIL"
-					if cr.Passed {
-						status = "PASS"
+					if !cr.Passed {
+						allPassed = false
+						break
 					}
-					m.log("  [" + status + "] " + cr.Command)
 				}
+				m.lastValidation = &ValidationResult{
+					Passed: allPassed,
+					Checks: m.validationResults,
+				}
+				if allPassed {
+					m.log("All validation checks passed!")
+				} else {
+					m.log("Validation failed:")
+					for _, cr := range m.validationResults {
+						status := "FAIL"
+						if cr.Passed {
+							status = "PASS"
+						}
+						m.log("  [" + status + "] " + cr.Command)
+					}
+				}
+				m.validationResults = nil
 			}
-			m.validationResults = nil
 		}
+	} else if msg.Op == "start" && msg.Err == nil {
+		m.setContainerActive(false)
+		m.log("Container started and ready")
 	}
 }
 
 func (m *Model) startLab() (tea.Model, tea.Cmd) {
-	if len(m.labs) == 0 {
+	if len(m.toolGroups) == 0 {
 		m.log("No labs available")
 		return m, nil
 	}
 
-	lab := m.labs[m.selectedIdx]
-	m.activeLab = lab
+	if len(m.toolGroups[m.selectedToolIdx].Labs) == 0 {
+		m.log("No labs in this category")
+		return m, nil
+	}
 
-	containerName := containerNamePrefix + m.normalizeName(lab.Name)
-	m.containerName = containerName
+	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].Lab
+	containerName := containerNamePrefix + normalizeName(lab.Name)
 
 	// Check if container already exists and is running
 	exists, _ := m.dockerCli.ContainerExists(containerName)
@@ -348,7 +502,7 @@ func (m *Model) startLab() (tea.Model, tea.Cmd) {
 		running, _ := m.dockerCli.IsRunning(containerName)
 		if running {
 			m.log("Container already running: " + containerName)
-			m.containerName = containerName
+			m.setContainerActive(false)
 			return m, nil
 		}
 	}
@@ -375,59 +529,65 @@ func (m *Model) startLab() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) resetLab() (tea.Model, tea.Cmd) {
-	if m.containerName == "" {
-		m.log("No lab is currently running")
+	containerName := m.getCurrentContainerName()
+	if containerName == "" {
+		m.log("No lab selected")
 		return m, nil
 	}
 
-	m.log("Resetting container: " + m.containerName)
+	m.log("Resetting container: " + containerName)
 	return m, func() tea.Msg {
-		err := m.dockerCli.CleanUp(m.containerName)
+		err := m.dockerCli.CleanUp(containerName)
 		if err != nil {
 			m.log("Failed to stop/remove container: " + err.Error())
 			return DockerOpComplete{Op: "reset", Err: err}
 		}
-
-		lab := m.activeLab
-		containerName := m.containerName
-		m.log("Starting fresh container for: " + lab.Name)
-		id, err := m.dockerCli.Start(lab.Image, containerName)
-		if err != nil {
-			m.log("Failed to start container: " + err.Error())
-			return DockerOpComplete{Op: "reset", Err: err}
-		}
-		m.log("Container started: " + id[:12])
-		return DockerOpComplete{Op: "reset", Err: err, ID: id}
+		m.setContainerStateStopped()
+		m.log("Container reset complete")
+		return DockerOpComplete{Op: "reset", Err: nil}
 	}
 }
 
 func (m *Model) stopLab() (tea.Model, tea.Cmd) {
-	if m.containerName == "" {
-		m.log("No lab is currently running")
+	containerName := m.getCurrentContainerName()
+	if containerName == "" {
+		m.log("No lab selected")
 		return m, nil
 	}
 
-	m.log("Stopping container: " + m.containerName)
+	m.log("Stopping container: " + containerName)
 	return m, func() tea.Msg {
-		err := m.dockerCli.Stop(m.containerName)
+		err := m.dockerCli.CleanUp(containerName)
 		if err != nil {
 			m.log("Failed to stop container: " + err.Error())
 			return DockerOpComplete{Op: "stop", Err: err}
 		}
-		m.containerID = ""
-		m.log("Container stopped")
+		m.setContainerStateStopped()
+		m.log("Container stopped and removed")
 		return DockerOpComplete{Op: "stop", Err: nil}
 	}
 }
 
+func (m *Model) setContainerStateStopped() {
+	if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+		m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].State = StateStopped
+	}
+}
+
 func (m *Model) validateLab() (tea.Model, tea.Cmd) {
-	if m.activeLab.Name == "" {
+	if len(m.toolGroups) == 0 || len(m.toolGroups[m.selectedToolIdx].Labs) == 0 {
+		m.log("No lab selected")
+		return m, nil
+	}
+
+	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].Lab
+	if lab.Name == "" {
 		m.log("No lab selected")
 		return m, nil
 	}
 
 	var cmds []tea.Cmd
-	for _, check := range m.activeLab.Checks {
+	for _, check := range lab.Validate {
 		cmds = append(cmds, m.runCheck(check))
 	}
 	return m, tea.Batch(cmds...)
@@ -435,11 +595,7 @@ func (m *Model) validateLab() (tea.Model, tea.Cmd) {
 
 func (m *Model) runCheck(command string) tea.Cmd {
 	return func() tea.Msg {
-		passed, err := m.dockerCli.Validate(m.containerName, command)
-		output := ""
-		if err != nil {
-			output = err.Error()
-		}
+		passed, output, err := m.dockerCli.Validate(m.getCurrentContainerName(), []string{command})
 		return DockerOpComplete{
 			Op:      "check",
 			Err:     err,
@@ -450,28 +606,11 @@ func (m *Model) runCheck(command string) tea.Cmd {
 	}
 }
 
-// startPTYReader starts a goroutine that reads from the PTY and sends
-// ptyMsg values to m.ptyCh. It runs until m.ptyDone is closed.
-// This spawns a real goroutine — NOT a blocking tea.Cmd.
 func (m *Model) log(msg string) {
 	m.logBuffer = append(m.logBuffer, msg)
 	if len(m.logBuffer) > 200 {
 		m.logBuffer = m.logBuffer[len(m.logBuffer)-150:]
 	}
-}
-
-func (m *Model) normalizeName(name string) string {
-	result := ""
-	for _, c := range name {
-		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
-			result += string(c)
-		} else if c >= 'A' && c <= 'Z' {
-			result += string(unicode.ToLower(c))
-		} else {
-			result += "-"
-		}
-	}
-	return result
 }
 
 // RequestShell returns true if the TUI should exit and start a shell session.
@@ -481,7 +620,7 @@ func (m *Model) RequestShell() bool {
 
 // ContainerName returns the name of the currently running container.
 func (m *Model) ContainerName() string {
-	return m.containerName
+	return m.getCurrentContainerName()
 }
 
 // truncate renders text to fit within n runes.
