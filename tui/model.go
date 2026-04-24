@@ -336,7 +336,7 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// Navigate labs within tool (horizontal)
-	case "left":
+	case "h":
 		if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
 			if m.selectedLabIdx > 0 {
 				m.selectedLabIdx--
@@ -344,7 +344,7 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "right":
+	case "l":
 		if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
 			if m.selectedLabIdx < len(m.toolGroups[m.selectedToolIdx].Labs)-1 {
 				m.selectedLabIdx++
@@ -386,7 +386,7 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.showTask()
 		return m, nil
 
-	case "l":
+	case "o":
 		m.showLog = !m.showLog
 		return m, nil
 	}

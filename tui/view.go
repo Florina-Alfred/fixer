@@ -181,14 +181,14 @@ func (m *Model) renderBottomBar() string {
 
 	hints := []string{
 		"↑/↓: tools",
-		"←/→: labs",
+		"h/l: labs",
 		"Enter: start",
 		"e: shell",
 		"s: stop",
 		"r: reset",
 		"v: validate",
 		"t: task",
-		"l: log",
+		"o: log",
 	}
 	parts = append(parts, strings.Join(hints, "  |  "))
 
