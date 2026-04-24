@@ -1,0 +1,51 @@
+# fixer
+
+Terminal TUI for running Docker-based training labs via Bubble Tea.
+
+## Quick start
+
+```
+go run .                          # run with labs/ relative to cwd
+go run . --labs /path/to/labs     # specify lab directory
+FIXER_LABS_DIR=/path go run .     # or via env var
+```
+
+## Architecture
+
+- `main.go` — entrypoint; resolves lab dir, loads YAML, runs TUI loop. Shell sessions exit the TUI and use `pty.ExecuteShell` for a full interactive `docker exec`. After shell exits (Ctrl+C / exit), TUI restarts.
+- `labs/` — lab YAML configs and `LoadAll`/`Load` functions. Expects `name`, `image`, `goal`, `checks`, `hints`. Both `.yml` and `.yaml` are loaded.
+- `tui/` — Bubble Tea model (`model.go`), view (`view.go`). Three-panel layout: lab list (left), lab details (right), keybindings bar (bottom). Single `ModeTUI` mode. Pressing `e` quits the TUI and hands the terminal to an interactive shell.
+- `docker/` — `Client` wrapping Docker CLI calls: `Start`, `Stop`, `Remove`, `CleanUp`, `Validate`, `ValidateWithOutput`, `ContainerExists`, `IsRunning`.
+- `pty/` — wraps `github.com/creack/pty`. `StartDockerExec` returns a `*Session`; `ExecuteShell` runs a full interactive shell (raw mode, stdin/stdout forwarding).
+
+Lab directory resolution order: CLI args (`--labs`, `-d`) > `FIXER_LABS_DIR` env > relative to executable > relative to cwd.
+
+## Key details
+
+- Container names are prefixed with `fixer-lab-` and lab names are normalized: lowercase alphanumeric + hyphens.
+- **Containers must use `tail -f /dev/null` as their command** (set in `docker.go:Start`). Alpine's default `/bin/sh` exits immediately with `-d`, leaving the container in `Exited` state.
+- Validation runs each `checks` entry via `docker exec`; exit code 0 = pass. Checks execute in parallel as Bubble Tea commands.
+- All dependencies in `go.mod` are marked `// indirect` — they are runtime deps for a `main` module, not transitive.
+- Shell mode drops out of the TUI entirely. The terminal is put into raw mode via `golang.org/x/term`, stdin is forwarded to the PTY, and PTY output is forwarded to stdout via `io.Copy`. Terminal state is restored on exit.
+
+## Testing
+
+```
+go test ./...
+```
+
+Tests use `t.TempDir()` for temp filesystems. Docker-dependent tests (`docker/`) require Docker installed but test structural correctness — they verify return types and non-panics rather than real container operations.
+
+## Lab YAML format
+
+```yaml
+name: Lab Title
+image: alpine:latest
+goal: Description of what to accomplish
+checks:
+  - "command to verify success"
+hints:
+  - "helpful tip"
+```
+
+`name` and `image` are required. `goal`, `checks`, `hints` are optional.

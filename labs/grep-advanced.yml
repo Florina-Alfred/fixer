@@ -1,0 +1,25 @@
+name: Grep Advanced - Email Extraction
+image: alpine:latest
+goal: "Extract all email addresses from /data/contacts.txt and save to /tmp/emails.txt (one per line)"
+category: grep
+level: intermediate
+setup:
+  - "mkdir -p /data"
+  - "echo 'John Doe <john.doe@example.com> - Sales Team' > /data/contacts.txt"
+  - "echo 'Jane Smith <jane.smith@company.org> - Marketing' >> /data/contacts.txt"
+  - "echo 'Bob Johnson - No email on file' >> /data/contacts.txt"
+  - "echo 'Alice Brown <alice.brown@test.io> - Engineering' >> /data/contacts.txt"
+  - "echo 'Contact support at support@helpdesk.net for assistance' >> /data/contacts.txt"
+  - "echo 'Charlie Wilson <charlie@domain.co.uk> - HR Department' >> /data/contacts.txt"
+checks:
+  - "test -f /tmp/emails.txt"
+  - "grep -q 'john.doe@example.com' /tmp/emails.txt"
+  - "grep -q 'jane.smith@company.org' /tmp/emails.txt"
+  - "grep -q 'alice.brown@test.io' /tmp/emails.txt"
+  - "grep -q 'support@helpdesk.net' /tmp/emails.txt"
+  - "grep -q 'charlie@domain.co.uk' /tmp/emails.txt"
+  - "test $(wc -l < /tmp/emails.txt) -eq 5"
+hints:
+  - "Use grep -o to output only matching parts"
+  - "Email pattern: [a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+  - "Try: grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]+' /data/contacts.txt > /tmp/emails.txt"
