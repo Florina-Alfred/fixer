@@ -2,6 +2,7 @@ package tui
 
 import (
 	"sort"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -89,10 +90,17 @@ type Model struct {
 
 type styles struct {
 	header            lipgloss.Style
+	headerTitle       lipgloss.Style
 	sidebar           lipgloss.Style
+	sidebarTitle      lipgloss.Style
+	sidebarHint       lipgloss.Style
 	tasksBar          lipgloss.Style
+	tasksBarTitle     lipgloss.Style
+	tasksBarHint      lipgloss.Style
 	tasksBarSep       lipgloss.Style
 	infoPanel         lipgloss.Style
+	infoPanelTitle    lipgloss.Style
+	infoLegend        lipgloss.Style
 	bottomBar         lipgloss.Style
 	panelTitle        lipgloss.Style
 	taskTitle         lipgloss.Style
@@ -129,48 +137,92 @@ func defaultStyles() *styles {
 	gray := lipgloss.Color("#6C757D")
 	white := lipgloss.Color("#FFFFFF")
 	darkGray := lipgloss.Color("#343A40")
+	orange := lipgloss.Color("#FF6B35")
 
-s.header = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FF6B35")).
-		PaddingLeft(2).
+	// Header
+	s.header = lipgloss.NewStyle().
 		MarginBottom(1)
 
-	s.taskTitle = lipgloss.NewStyle().
+	s.headerTitle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(white).
-		Background(lipgloss.Color("#1a1a2e")).
-		Padding(0, 1)
+		Foreground(orange).
+		Align(lipgloss.Center)
 
-	s.infoLabel = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(blue)
-
-	s.panelTitle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(gray).
-		Underline(true).
-		PaddingBottom(1)
-
+	// Sidebar (tools)
 	s.sidebar = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(gray).
-		Padding(1, 2).
-		Width(14)
+		Padding(0, 1)
 
+	s.sidebarTitle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(gray).
+		Align(lipgloss.Center).
+		MarginBottom(1)
+
+	s.sidebarHint = lipgloss.NewStyle().
+		Foreground(gray).
+		Align(lipgloss.Center).
+		MarginTop(1)
+
+	// Tasks bar
 	s.tasksBar = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(gray).
-		Padding(1, 2)
+		Padding(0, 1)
+
+	s.tasksBarTitle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(gray).
+		Align(lipgloss.Center).
+		MarginBottom(1)
+
+	s.tasksBarHint = lipgloss.NewStyle().
+		Foreground(gray).
+		Align(lipgloss.Center).
+		MarginTop(1)
 
 	s.tasksBarSep = lipgloss.NewStyle().
 		Foreground(gray).
 		Padding(0, 1)
 
+	// Info panel
 	s.infoPanel = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(gray).
-		Padding(1, 2)
+		Padding(0, 1)
+
+	s.infoPanelTitle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(gray).
+		Align(lipgloss.Center).
+		MarginBottom(1)
+
+	s.infoLegend = lipgloss.NewStyle().
+		PaddingLeft(1)
+
+	// Bottom bar
+	s.bottomBar = lipgloss.NewStyle().
+		Foreground(gray).
+		Background(darkGray).
+		Padding(0, 2).
+		MarginTop(1).
+		Align(lipgloss.Center)
+
+	s.bottomBarMode = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(green)
+
+	// Navigation
+	s.selectedTool = lipgloss.NewStyle().
+		Foreground(white).
+		Bold(true).
+		Background(lipgloss.Color("#1a1a2e")).
+		Padding(0, 1)
+
+	s.unselectedTool = lipgloss.NewStyle().
+		Foreground(gray).
+		Padding(0, 1)
 
 	s.selectedTask = lipgloss.NewStyle().
 		Foreground(white).
@@ -182,29 +234,7 @@ s.header = lipgloss.NewStyle().
 		Foreground(gray).
 		Padding(0, 1)
 
-	s.bottomBar = lipgloss.NewStyle().
-		Foreground(gray).
-		Background(darkGray).
-		Padding(0, 2).
-		MarginTop(1)
-
-	s.bottomBarMode = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(green)
-
-	s.dimText = lipgloss.NewStyle().
-		Foreground(gray)
-
-	s.selectedTool = lipgloss.NewStyle().
-		Foreground(white).
-		Bold(true).
-		Background(lipgloss.Color("#1a1a2e")).
-		Padding(0, 1)
-
-	s.unselectedTool = lipgloss.NewStyle().
-		Foreground(gray).
-		Padding(0, 1)
-
+	// States
 	s.activeLab = lipgloss.NewStyle().
 		Foreground(green).
 		Bold(true)
@@ -216,12 +246,22 @@ s.header = lipgloss.NewStyle().
 	s.stoppedLab = lipgloss.NewStyle().
 		Foreground(gray)
 
-	s.hint = lipgloss.NewStyle().
-		Foreground(gray)
+	// Info panel content
+	s.taskTitle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(white).
+		Align(lipgloss.Center)
+
+	s.infoLabel = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(blue)
 
 	s.goal = lipgloss.NewStyle().
 		Foreground(green).
 		Italic(true)
+
+	s.hint = lipgloss.NewStyle().
+		Foreground(gray)
 
 	s.checkPassed = lipgloss.NewStyle().
 		Foreground(green).
@@ -234,9 +274,8 @@ s.header = lipgloss.NewStyle().
 	s.logStyle = lipgloss.NewStyle().
 		Foreground(gray)
 
-	s.border = lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder()).
-		BorderForeground(gray)
+	s.dimText = lipgloss.NewStyle().
+		Foreground(gray)
 
 	return s
 }
@@ -674,4 +713,16 @@ func truncate(s string, n int) string {
 	}
 	runes := []rune(s)
 	return string(runes[:n-1]) + "…"
+}
+
+// centerPad centers text within the given width by padding with spaces.
+func centerPad(s string, width int) string {
+	textLen := utf8.RuneCountInString(s)
+	if textLen >= width {
+		return s
+	}
+	totalPad := width - textLen
+	left := totalPad / 2
+	right := totalPad - left
+	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
 }
