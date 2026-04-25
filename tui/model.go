@@ -147,7 +147,6 @@ func defaultStyles() *styles {
 
 	// Header
 	s.header = lipgloss.NewStyle().
-		MarginBottom(1).
 		Foreground(nord8).
 		Bold(true)
 
