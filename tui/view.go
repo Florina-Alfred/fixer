@@ -19,11 +19,9 @@ func (m *Model) View() string {
 	// Fixed layout dimensions
 	headerH := 1
 	footerH := 1
-	topGap := 1
-	bottomGap := 1
 	panelGap := 1 // gap between left sidebar and right content
 
-	availableH := m.height - headerH - footerH - topGap - bottomGap
+	availableH := m.height - headerH - footerH
 	availableW := m.width
 
 	// Sidebar width: fixed 24 chars
@@ -48,7 +46,6 @@ func (m *Model) View() string {
 		centerPad("fixer — Training Labs", availableW),
 	))
 	sb.WriteString("\n")
-	sb.WriteString("\n") // top gap for symmetric padding
 
 	// Build sidebar (Width/Height set inner area; border adds +2 outside)
 	sidebar := m.renderToolsSidebar(sidebarW-2, availableH-2)
@@ -57,12 +54,13 @@ func (m *Model) View() string {
 	tasksBar := m.renderTasksBar(contentW-2, tasksBarH-2)
 	infoPanel := m.renderInfoPanel(contentW-2, infoPanelH-2)
 
-	rightCol := lipgloss.JoinVertical(lipgloss.Left, tasksBar, infoPanel)
+	gapLine := strings.Repeat(" ", contentW)
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, tasksBar, gapLine, infoPanel)
 
 	// Join left and right
-	sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightCol))
+	gapCol := strings.Repeat("\n", availableH)
+	sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, sidebar, gapCol, rightCol))
 	sb.WriteString("\n")
-	sb.WriteString("\n") // bottom gap for symmetric padding
 
 	// Footer
 	sb.WriteString(m.styles.bottomBar.Render(m.buildFooterText(availableW)))

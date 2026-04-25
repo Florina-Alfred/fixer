@@ -155,11 +155,15 @@ func defaultStyles() *styles {
 		Foreground(nord8).
 		Align(lipgloss.Center)
 
-	// Panels — equal top/bottom padding
+	// Panels — equal top/bottom/left/right padding, vertically centered content
 	panelBorder := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(nord3).
-		Padding(1, 1)
+		PaddingLeft(1).
+		PaddingRight(1).
+		PaddingTop(1).
+		PaddingBottom(1).
+		AlignVertical(lipgloss.Center)
 
 	s.sidebar = panelBorder
 	s.tasksBar = panelBorder
@@ -196,7 +200,6 @@ func defaultStyles() *styles {
 		Foreground(nord3).
 		Background(nord0).
 		Padding(0, 2).
-		MarginTop(1).
 		Align(lipgloss.Center)
 
 	s.bottomBarMode = lipgloss.NewStyle().
