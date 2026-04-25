@@ -47,12 +47,12 @@ func (m *Model) View() string {
 	))
 	sb.WriteString("\n")
 
-	// Build sidebar
-	sidebar := m.renderToolsSidebar(sidebarW, availableH)
+	// Build sidebar (Width/Height set inner area; border adds +2 outside)
+	sidebar := m.renderToolsSidebar(sidebarW-2, availableH-2)
 
 	// Build right content: tasks bar + info panel
-	tasksBar := m.renderTasksBar(contentW, tasksBarH)
-	infoPanel := m.renderInfoPanel(contentW, infoPanelH)
+	tasksBar := m.renderTasksBar(contentW-2, tasksBarH-2)
+	infoPanel := m.renderInfoPanel(contentW-2, infoPanelH-2)
 
 	rightCol := lipgloss.JoinVertical(lipgloss.Left, tasksBar, infoPanel)
 
@@ -67,8 +67,8 @@ func (m *Model) View() string {
 }
 
 func (m *Model) renderToolsSidebar(w, h int) string {
-	innerW := w - 4 // border(2) + padding(2)
-	innerH := h - 4 // border(2) + padding(2)
+	innerW := w - 2 // Width sets inner area (content + padding), padding is 1+1
+	innerH := h - 2 // Height sets inner area (content + padding), padding is 1+1
 	if innerW < 4 {
 		innerW = 4
 	}
@@ -112,8 +112,8 @@ func (m *Model) renderToolsSidebar(w, h int) string {
 }
 
 func (m *Model) renderTasksBar(w, h int) string {
-	innerW := w - 4
-	innerH := h - 4
+	innerW := w - 2
+	innerH := h - 2
 	if innerW < 4 {
 		innerW = 4
 	}
@@ -179,8 +179,8 @@ func (m *Model) renderTasksBar(w, h int) string {
 }
 
 func (m *Model) renderInfoPanel(w, h int) string {
-	innerW := w - 4
-	innerH := h - 4
+	innerW := w - 2
+	innerH := h - 2
 	if innerW < 4 {
 		innerW = 4
 	}
