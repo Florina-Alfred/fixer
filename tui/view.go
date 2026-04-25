@@ -195,18 +195,9 @@ func (m *Model) renderInfoPanel(w, h int) string {
 	lines = append(lines, centerPad("Information", innerW))
 	lines = append(lines, titleSep)
 
-	// State legend in top-right
-	if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
-		legendText := m.styles.activeLab.Render("● Active") + "  " +
-			m.styles.idleLab.Render("○ Idle") + "  " +
-			m.styles.stoppedLab.Render("□ Stopped")
-		lines = append(lines, lipgloss.NewStyle().Align(lipgloss.Right).Width(innerW).Render(legendText))
-		lines = append(lines, "")
-	}
-
 	if len(m.toolGroups) == 0 || len(m.toolGroups[m.selectedToolIdx].Labs) == 0 {
+		lines = append(lines, "")
 		lines = append(lines, centerPad("Select a task to begin", innerW))
-		// Fill remaining
 		for len(lines) < innerH {
 			lines = append(lines, "")
 		}
@@ -216,20 +207,21 @@ func (m *Model) renderInfoPanel(w, h int) string {
 
 	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx]
 
-	// Lab name centered, bold
-	lines = append(lines, centerPad(lab.Lab.Name, innerW))
-
-	// State
-	stateLine := ""
+	// State badge in top-right corner only
+	stateText := ""
 	switch lab.State {
 	case StateActive:
-		stateLine = "● Active (in shell)"
+		stateText = m.styles.activeLab.Render("● Active")
 	case StateIdle:
-		stateLine = "○ Running (idle)"
+		stateText = m.styles.idleLab.Render("○ Idle")
 	default:
-		stateLine = "□ Stopped"
+		stateText = m.styles.stoppedLab.Render("□ Stopped")
 	}
-	lines = append(lines, centerPad(stateLine, innerW))
+	lines = append(lines, lipgloss.NewStyle().Align(lipgloss.Right).Width(innerW).Render(stateText))
+	lines = append(lines, "")
+
+	// Lab name centered
+	lines = append(lines, centerPad(lab.Lab.Name, innerW))
 	lines = append(lines, "")
 
 	// Goal

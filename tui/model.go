@@ -130,152 +130,143 @@ type styles struct {
 func defaultStyles() *styles {
 	s := &styles{}
 
-	blue := lipgloss.Color("#006BB6")
-	green := lipgloss.Color("#50C878")
-	yellow := lipgloss.Color("#FFB347")
-	red := lipgloss.Color("#FF6B6B")
-	gray := lipgloss.Color("#6C757D")
-	white := lipgloss.Color("#FFFFFF")
-	darkGray := lipgloss.Color("#343A40")
-	orange := lipgloss.Color("#FF6B35")
+	// Nord Dark palette
+	nord0  := lipgloss.Color("#2E3440")
+	nord1  := lipgloss.Color("#3B4252")
+	nord3  := lipgloss.Color("#4C566A")
+	nord5  := lipgloss.Color("#E5E9F0")
+	nord6  := lipgloss.Color("#ECEFF4")
+	nord8  := lipgloss.Color("#88C0D0")
+	nord9  := lipgloss.Color("#81A1C1")
+	nord12 := lipgloss.Color("#BF616A")
+	nord14 := lipgloss.Color("#EBCB8B")
+	nord15 := lipgloss.Color("#A3BE8C")
+
+	selBg := nord1
+	selFg := nord6
 
 	// Header
 	s.header = lipgloss.NewStyle().
-		MarginBottom(1)
+		MarginBottom(1).
+		Foreground(nord8).
+		Bold(true)
 
 	s.headerTitle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(orange).
+		Foreground(nord8).
 		Align(lipgloss.Center)
 
-	// Sidebar (tools)
-	s.sidebar = lipgloss.NewStyle().
+	// Panels — equal top/bottom padding
+	panelBorder := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(gray).
-		Padding(0, 1)
+		BorderForeground(nord3).
+		Padding(1, 1)
+
+	s.sidebar = panelBorder
+	s.tasksBar = panelBorder
+	s.infoPanel = panelBorder
 
 	s.sidebarTitle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(gray).
-		Align(lipgloss.Center).
-		MarginBottom(1)
+		Foreground(nord9).
+		Align(lipgloss.Center)
 
 	s.sidebarHint = lipgloss.NewStyle().
-		Foreground(gray).
-		Align(lipgloss.Center).
-		MarginTop(1)
-
-	// Tasks bar
-	s.tasksBar = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(gray).
-		Padding(0, 1)
+		Foreground(nord3).
+		Align(lipgloss.Center)
 
 	s.tasksBarTitle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(gray).
-		Align(lipgloss.Center).
-		MarginBottom(1)
+		Foreground(nord9).
+		Align(lipgloss.Center)
 
 	s.tasksBarHint = lipgloss.NewStyle().
-		Foreground(gray).
-		Align(lipgloss.Center).
-		MarginTop(1)
+		Foreground(nord3).
+		Align(lipgloss.Center)
 
 	s.tasksBarSep = lipgloss.NewStyle().
-		Foreground(gray).
-		Padding(0, 1)
-
-	// Info panel
-	s.infoPanel = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(gray).
-		Padding(0, 1)
+		Foreground(nord3)
 
 	s.infoPanelTitle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(gray).
-		Align(lipgloss.Center).
-		MarginBottom(1)
-
-	s.infoLegend = lipgloss.NewStyle().
-		PaddingLeft(1)
+		Foreground(nord9).
+		Align(lipgloss.Center)
 
 	// Bottom bar
 	s.bottomBar = lipgloss.NewStyle().
-		Foreground(gray).
-		Background(darkGray).
+		Foreground(nord3).
+		Background(nord0).
 		Padding(0, 2).
 		MarginTop(1).
 		Align(lipgloss.Center)
 
 	s.bottomBarMode = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(green)
+		Foreground(nord15)
 
-	// Navigation
+	// Navigation highlights
 	s.selectedTool = lipgloss.NewStyle().
-		Foreground(white).
+		Foreground(selFg).
 		Bold(true).
-		Background(lipgloss.Color("#1a1a2e")).
+		Background(selBg).
 		Padding(0, 1)
 
 	s.unselectedTool = lipgloss.NewStyle().
-		Foreground(gray).
+		Foreground(nord3).
 		Padding(0, 1)
 
 	s.selectedTask = lipgloss.NewStyle().
-		Foreground(white).
+		Foreground(selFg).
 		Bold(true).
-		Background(lipgloss.Color("#1a1a2e")).
+		Background(selBg).
 		Padding(0, 1)
 
 	s.unselectedTask = lipgloss.NewStyle().
-		Foreground(gray).
+		Foreground(nord3).
 		Padding(0, 1)
 
 	// States
 	s.activeLab = lipgloss.NewStyle().
-		Foreground(green).
+		Foreground(nord15).
 		Bold(true)
 
 	s.idleLab = lipgloss.NewStyle().
-		Foreground(yellow).
+		Foreground(nord14).
 		Bold(true)
 
 	s.stoppedLab = lipgloss.NewStyle().
-		Foreground(gray)
+		Foreground(nord3)
 
 	// Info panel content
 	s.taskTitle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(white).
+		Foreground(nord5).
 		Align(lipgloss.Center)
 
 	s.infoLabel = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(blue)
+		Foreground(nord8)
 
 	s.goal = lipgloss.NewStyle().
-		Foreground(green).
+		Foreground(nord15).
 		Italic(true)
 
 	s.hint = lipgloss.NewStyle().
-		Foreground(gray)
+		Foreground(nord3)
 
 	s.checkPassed = lipgloss.NewStyle().
-		Foreground(green).
+		Foreground(nord15).
 		Bold(true)
 
 	s.checkFailed = lipgloss.NewStyle().
-		Foreground(red).
+		Foreground(nord12).
 		Bold(true)
 
 	s.logStyle = lipgloss.NewStyle().
-		Foreground(gray)
+		Foreground(nord3)
 
 	s.dimText = lipgloss.NewStyle().
-		Foreground(gray)
+		Foreground(nord3)
 
 	return s
 }
