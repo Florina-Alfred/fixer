@@ -28,8 +28,8 @@ type ContainerState int
 
 const (
 	StateStopped ContainerState = iota
-	StateIdle    // Running but not in shell
-	StateActive  // Currently in shell
+	StateIdle                   // Running but not in shell
+	StateActive                 // Currently in shell
 )
 
 // DockerOpComplete signals a Docker operation finished.
@@ -89,55 +89,55 @@ type Model struct {
 }
 
 type styles struct {
-	header            lipgloss.Style
-	headerTitle       lipgloss.Style
-	sidebar           lipgloss.Style
-	sidebarTitle      lipgloss.Style
-	sidebarHint       lipgloss.Style
-	tasksBar          lipgloss.Style
-	tasksBarTitle     lipgloss.Style
-	tasksBarHint      lipgloss.Style
-	tasksBarSep       lipgloss.Style
-	infoPanel         lipgloss.Style
-	infoPanelTitle    lipgloss.Style
-	infoLegend        lipgloss.Style
-	bottomBar         lipgloss.Style
-	panelTitle        lipgloss.Style
-	taskTitle         lipgloss.Style
-	infoLabel         lipgloss.Style
-	selectedTool      lipgloss.Style
-	unselectedTool    lipgloss.Style
-	selectedTask      lipgloss.Style
-	unselectedTask    lipgloss.Style
-	activeLab         lipgloss.Style
-	idleLab           lipgloss.Style
-	stoppedLab        lipgloss.Style
-	title             lipgloss.Style
-	bottomBarMode     lipgloss.Style
-	dimText           lipgloss.Style
-	hint              lipgloss.Style
-	goal              lipgloss.Style
-	checkPassed       lipgloss.Style
-	checkFailed       lipgloss.Style
-	logStyle          lipgloss.Style
-	levelBadge        lipgloss.Style
-	goalLabel         lipgloss.Style
-	goalText          lipgloss.Style
-	hintLabel         lipgloss.Style
-	border            lipgloss.Style
+	header         lipgloss.Style
+	headerTitle    lipgloss.Style
+	sidebar        lipgloss.Style
+	sidebarTitle   lipgloss.Style
+	sidebarHint    lipgloss.Style
+	tasksBar       lipgloss.Style
+	tasksBarTitle  lipgloss.Style
+	tasksBarHint   lipgloss.Style
+	tasksBarSep    lipgloss.Style
+	infoPanel      lipgloss.Style
+	infoPanelTitle lipgloss.Style
+	infoLegend     lipgloss.Style
+	bottomBar      lipgloss.Style
+	panelTitle     lipgloss.Style
+	taskTitle      lipgloss.Style
+	infoLabel      lipgloss.Style
+	selectedTool   lipgloss.Style
+	unselectedTool lipgloss.Style
+	selectedTask   lipgloss.Style
+	unselectedTask lipgloss.Style
+	activeLab      lipgloss.Style
+	idleLab        lipgloss.Style
+	stoppedLab     lipgloss.Style
+	title          lipgloss.Style
+	bottomBarMode  lipgloss.Style
+	dimText        lipgloss.Style
+	hint           lipgloss.Style
+	goal           lipgloss.Style
+	checkPassed    lipgloss.Style
+	checkFailed    lipgloss.Style
+	logStyle       lipgloss.Style
+	levelBadge     lipgloss.Style
+	goalLabel      lipgloss.Style
+	goalText       lipgloss.Style
+	hintLabel      lipgloss.Style
+	border         lipgloss.Style
 }
 
 func defaultStyles() *styles {
 	s := &styles{}
 
 	// Nord Dark palette
-	nord0  := lipgloss.Color("#2E3440")
-	nord1  := lipgloss.Color("#3B4252")
-	nord3  := lipgloss.Color("#4C566A")
-	nord5  := lipgloss.Color("#E5E9F0")
-	nord6  := lipgloss.Color("#ECEFF4")
-	nord8  := lipgloss.Color("#88C0D0")
-	nord9  := lipgloss.Color("#81A1C1")
+	nord0 := lipgloss.Color("#2E3440")
+	nord1 := lipgloss.Color("#3B4252")
+	nord3 := lipgloss.Color("#4C566A")
+	nord5 := lipgloss.Color("#E5E9F0")
+	nord6 := lipgloss.Color("#ECEFF4")
+	nord8 := lipgloss.Color("#88C0D0")
+	nord9 := lipgloss.Color("#81A1C1")
 	nord12 := lipgloss.Color("#BF616A")
 	nord14 := lipgloss.Color("#EBCB8B")
 	nord15 := lipgloss.Color("#A3BE8C")
@@ -286,6 +286,10 @@ func groupLabsByCategory(labsList []labs.Lab) []ToolGroup {
 
 	var groups []ToolGroup
 	for category, categoryLabs := range categoryMap {
+		// Sort labs by name for consistent ordering
+		sort.Slice(categoryLabs, func(i, j int) bool {
+			return categoryLabs[i].Name < categoryLabs[j].Name
+		})
 		var labsWithState []LabWithState
 		for _, lab := range categoryLabs {
 			labsWithState = append(labsWithState, LabWithState{
@@ -310,14 +314,37 @@ func groupLabsByCategory(labsList []labs.Lab) []ToolGroup {
 // NewModel creates a new application model.
 func NewModel(labsList []labs.Lab) *Model {
 	m := &Model{
-		mode:          ModeTUI,
-		toolGroups:    groupLabsByCategory(labsList),
+		mode:            ModeTUI,
+		toolGroups:      groupLabsByCategory(labsList),
 		selectedToolIdx: 0,
 		selectedLabIdx:  0,
 		dockerCli:       docker.New(),
 	}
 	m.initStyles()
 	return m
+}
+
+// RestoreState restores container states and selection from a previous session.
+func (m *Model) RestoreState(prevGroups []ToolGroup, selectedToolIdx, selectedLabIdx int) {
+	// Restore container states by matching lab names
+	for i := range prevGroups {
+		for j := range m.toolGroups {
+			if m.toolGroups[j].Category == prevGroups[i].Category {
+				prevNameMap := make(map[string]ContainerState)
+				for _, pl := range prevGroups[i].Labs {
+					prevNameMap[pl.Lab.Name] = pl.State
+				}
+				for k := range m.toolGroups[j].Labs {
+					if state, ok := prevNameMap[m.toolGroups[j].Labs[k].Lab.Name]; ok {
+						m.toolGroups[j].Labs[k].State = state
+					}
+				}
+			}
+		}
+	}
+	// Restore selection
+	m.selectedToolIdx = selectedToolIdx
+	m.selectedLabIdx = selectedLabIdx
 }
 
 // GetState returns the current model state for restoration.

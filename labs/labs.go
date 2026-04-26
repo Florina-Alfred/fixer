@@ -12,15 +12,15 @@ import (
 
 // Lab represents a declarative training lab configuration.
 type Lab struct {
-	Name       string   `yaml:"name"`
-	Image      string   `yaml:"image"`
-	Goal       string   `yaml:"goal"`
-	Setup      []string `yaml:"setup"`
-	Validate   []string `yaml:"validate"`
-	Hints      []string `yaml:"hints"`
-	Category   string   `yaml:"category"`
-	Level      string   `yaml:"level"`
-	Description string  `yaml:"description"`
+	Name        string   `yaml:"name"`
+	Image       string   `yaml:"image"`
+	Goal        string   `yaml:"goal"`
+	Setup       []string `yaml:"setup"`
+	Validate    []string `yaml:"validate"`
+	Hints       []string `yaml:"hints"`
+	Category    string   `yaml:"category"`
+	Level       string   `yaml:"level"`
+	Description string   `yaml:"description"`
 }
 
 // LoadAll loads all labs from the given directory.

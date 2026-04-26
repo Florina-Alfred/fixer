@@ -122,5 +122,3 @@ func ptyStart(cmd *exec.Cmd) (*os.File, error) {
 		Cols: 120,
 	})
 }
-
-

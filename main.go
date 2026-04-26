@@ -13,6 +13,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// savedState holds TUI state to restore after shell exit.
+type savedState struct {
+	toolGroups      []tui.ToolGroup
+	selectedToolIdx int
+	selectedLabIdx  int
+}
+
 func main() {
 	labDir := findLabDir()
 
@@ -28,8 +35,15 @@ func main() {
 		os.Exit(1)
 	}
 
-for {
+	var prev *savedState
+	for {
 		m := tui.NewModel(labList)
+
+		// Restore state from previous session if available
+		if prev != nil {
+			m.RestoreState(prev.toolGroups, prev.selectedToolIdx, prev.selectedLabIdx)
+		}
+
 		p := tea.NewProgram(m, tea.WithAltScreen())
 
 		_, err := p.Run()
@@ -47,8 +61,14 @@ for {
 			return
 		}
 
-		// Get state before shell
+		// Save state before shell
 		containerName := m.ContainerName()
+		prevGroups, selectedToolIdx, selectedLabIdx, _, _ := m.GetState()
+		prev = &savedState{
+			toolGroups:      prevGroups,
+			selectedToolIdx: selectedToolIdx,
+			selectedLabIdx:  selectedLabIdx,
+		}
 
 		if err := pty.ExecuteShell(containerName); err != nil {
 			fmt.Fprintf(os.Stderr, "Shell error: %v\n", err)
