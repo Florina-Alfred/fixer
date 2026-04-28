@@ -142,15 +142,27 @@ func (m *Model) renderTasksBar(w, h int) string {
 				lab := labWithState.Lab
 				isSelected := j == m.selectedLabIdx
 
-				stateChar := "□"
-				if labWithState.State == StateActive {
-					stateChar = "●"
-				} else if labWithState.State == StateIdle {
-					stateChar = "○"
-				}
+stateChar := "□"
+			if labWithState.State == StateActive {
+				stateChar = "●"
+			} else if labWithState.State == StateIdle {
+				stateChar = "○"
+			} else if labWithState.State == StateReady {
+				stateChar = "◉"
+			} else if labWithState.State == StateLaunching {
+				stateChar = "⟳"
+			} else if labWithState.State == StateStopping {
+				stateChar = "⟳"
+			}
 
-				name := truncate(lab.Name, 20)
-				btnText := fmt.Sprintf(" %s %s", stateChar, name)
+			// Show checkmark for validated tasks
+			validatedMark := ""
+			if labWithState.Validated {
+				validatedMark = " ✓"
+			}
+
+			name := truncate(lab.Name, 20)
+			btnText := fmt.Sprintf(" %s %s%s", stateChar, name, validatedMark)
 
 				btnW := lipgloss.Width(btnText) + 4
 				if isSelected {
@@ -209,6 +221,14 @@ func (m *Model) renderInfoPanel(w, h int) string {
 
 	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx]
 
+	// Show validated badge if task passed
+	if lab.Validated {
+		lines = append(lines, lipgloss.NewStyle().Align(lipgloss.Right).Width(innerW).Render(
+			m.styles.validatedLab.Render("✓ Validated"),
+		))
+		lines = append(lines, "")
+	}
+
 	// State badge in top-right corner only
 	stateText := ""
 	switch lab.State {
@@ -216,6 +236,12 @@ func (m *Model) renderInfoPanel(w, h int) string {
 		stateText = m.styles.activeLab.Render("● Active")
 	case StateIdle:
 		stateText = m.styles.idleLab.Render("○ Idle")
+	case StateReady:
+		stateText = m.styles.readyLab.Render("◉ Ready")
+	case StateLaunching:
+		stateText = m.styles.launchingLab.Render("⟳ Launching...")
+	case StateStopping:
+		stateText = m.styles.stoppingLab.Render("⟳ Stopping...")
 	default:
 		stateText = m.styles.stoppedLab.Render("□ Stopped")
 	}

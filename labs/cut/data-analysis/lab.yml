@@ -1,20 +1,24 @@
 name: Cut Data Analysis
-image: python:3.11-slim
+image: python:3.11
 category: cut
 level: intermediate
-goal: "Master cut command for data extraction from CSV and delimited files"
+goal: "Extract data from CSV/log files using cut"
 description: |
-  Learn to use cut effectively to extract specific columns from CSV files,
-  logs, and other delimited data. Real-world scenarios include employee
-  databases, server logs, network traffic, and sales reports.
+  ## Scenario
+  Extract data columns using cut.
+  
+  Files in: /tmp/labs/
+  
+  ## Tasks
+  1. Extract emails from employees.csv → /tmp/labs/emails.txt
+  2. Extract errors from server_logs.txt → /tmp/labs/errors.txt
+  
+  ## Validation
+  Run `v` to check
 
 setup:
-  - "chmod +x /setup/setup.sh && /setup/setup.sh"
+  - 'python3 /setup/setup.py'
 validate:
-  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+  - 'python3 /validate/validate.py'
 hints:
-  - "Use 'cut -d DELIM -f FIELDS' to extract fields with delimiter"
-  - "Use -d ',' for CSV, -d '|' for pipe-delimited files"
-  - "Specify multiple fields: -f 1,3,5 or ranges: -f 1-3"
-  - "Combine with grep to filter before cutting"
-  - "Use tail -n +2 to skip header row"
+  - 'cut -d| -f3 /tmp/labs/employees.csv'

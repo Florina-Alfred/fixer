@@ -18,7 +18,9 @@ type Session struct {
 
 // StartDockerExec starts a docker exec sh process inside a container and wraps it in a PTY.
 func StartDockerExec(containerName string) (*Session, error) {
-	cmd := exec.Command("docker", "exec", "-it", containerName, "sh")
+	cmd := exec.Command("docker", "exec", "-it",
+		"-e", "TERM=xterm-256color",
+		containerName, "/bin/bash", "-l")
 	f, err := ptyStart(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("starting pty: %w", err)
@@ -36,7 +38,13 @@ func ExecuteShell(containerName string) error {
 		cols, rows = 80, 24
 	}
 
-	cmd := exec.Command("docker", "exec", "-it", containerName, "sh")
+	// Use bash with login shell to source profile and enable completions
+	// Set up color support and autocomplete via environment
+	cmd := exec.Command("docker", "exec", "-it",
+		"-e", "TERM=xterm-256color",
+		"-e", "BASH_SHLVL=1",
+		containerName,
+		"/bin/bash", "-l")
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{
 		Rows: uint16(rows),
 		Cols: uint16(cols),

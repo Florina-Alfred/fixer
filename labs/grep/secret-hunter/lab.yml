@@ -1,20 +1,25 @@
 name: Grep Secret Hunter
-image: python:3.11-slim
+image: python:3.11
 category: grep
 level: intermediate
-goal: "Extract hidden secrets from log files using grep"
+goal: "Extract secrets: AUTH_CODE_9182, SECRET_NUM_7429, API_KEY_xK9mP2nQ, TOKEN_aB3cD4eF5g, MASTER_KEY_3847"
 description: |
-  A realistic log analysis exercise where you'll hunt for hidden secrets
-  scattered across multiple log files. You'll learn to use grep effectively
-  to find patterns, extract specific data, and search recursively.
+  ## Scenario
+  An attacker left secrets in log files. Find them before they can be exploited.
+  
+  Log files are in: /tmp/labs/
+  
+  ## Tasks
+  1. Search /tmp/labs/system.log for AUTH_CODE_XXXX → /tmp/auth-code.txt
+  2. Search /tmp/labs/app.log for secrets → /tmp/secrets_found.txt  
+  3. Search /tmp/labs/security.log for MASTER_KEY → /tmp/master-key.txt
+  
+  ## Validation
+  Run `v` to check
 
 setup:
-  - "chmod +x /setup/setup.sh && /setup/setup.sh"
+  - 'python3 /setup/setup.py'
 validate:
-  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+  - 'python3 /validate/validate.py'
 hints:
-  - "Use 'grep PATTERN file' to search for patterns in a file"
-  - "Use 'grep -o' to output only the matching parts"
-  - "Use 'grep -r' to search recursively through directories"
-  - "Use 'grep -E' for extended regex patterns"
-  - "Secrets follow patterns like SECRET_XXXX, AUTH_CODE_XXXX, etc."
+  - 'grep AUTH_CODE /tmp/labs/system.log'

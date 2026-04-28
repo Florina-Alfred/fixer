@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""Setup script for Log Analyzer lab."""
+
+import os
+
+os.makedirs("/tmp/labs", exist_ok=True)
+
+# access.log
+access_log = """192.168.1.100 - - [15/Mar/2024:10:15:30] GET /index.html HTTP/1.1 200 1234
+10.0.0.50 - - [15/Mar/2024:10:16:45] POST /api/login HTTP/1.1 401 89
+192.168.1.100 - - [15/Mar/2024:10:17:00] GET /admin HTTP/1.1 403 156
+203.0.113.42 - - [15/Mar/2024:10:18:22] GET /wp-admin HTTP/1.1 404 234
+10.0.0.50 - - [15/Mar/2024:10:19:10] POST /api/login HTTP/1.1 401 89
+192.168.1.105 - - [15/Mar/2024:10:20:00] GET /products HTTP/1.1 200 5678
+203.0.113.42 - - [15/Mar/2024:10:21:15] GET /phpmyadmin HTTP/1.1 404 234
+10.0.0.50 - - [15/Mar/2024:10:22:30] POST /api/login HTTP/1.1 200 456
+192.168.1.100 - - [15/Mar/2024:10:23:45] GET /dashboard HTTP/1.1 200 8901
+203.0.113.42 - - [15/Mar/2024:10:24:00] GET /../../../etc/passwd HTTP/1.1 400 0
+172.16.0.200 - - [15/Mar/2024:10:25:12] GET /api/users HTTP/1.1 500 234
+192.168.1.105 - - [15/Mar/2024:10:26:30] POST /api/order HTTP/1.1 201 789
+10.0.0.50 - - [15/Mar/2024:10:27:45] GET /profile HTTP/1.1 200 3456
+203.0.113.42 - - [15/Mar/2024:10:28:00] GET /admin/config HTTP/1.1 403 156
+172.16.0.200 - - [15/Mar/2024:10:29:15] POST /api/data HTTP/1.1 500 345
+"""
+with open("/tmp/labs/access.log", "w") as f:
+    f.write(access_log)
+
+# error.log
+error_log = """[ERROR] 2024-03-15 10:16:45 - Authentication failed for user admin
+[ERROR] 2024-03-15 10:18:22 - Resource not found: /wp-admin
+[ERROR] 2024-03-15 10:21:15 - Resource not found: /phpmyadmin
+[ERROR] 2024-03-15 10:24:00 - Invalid request path detected
+[ERROR] 2024-03-15 10:25:12 - Database connection timeout
+[ERROR] 2024-03-15 10:28:00 - Unauthorized access attempt to /admin/config
+[ERROR] 2024-03-15 10:29:15 - Internal server error in /api/data endpoint
+"""
+with open("/tmp/labs/error.log", "w") as f:
+    f.write(error_log)
+
+print("Setup complete")

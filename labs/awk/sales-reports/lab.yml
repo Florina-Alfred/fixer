@@ -1,21 +1,24 @@
 name: Awk Sales Reports
-image: python:3.11-slim
+image: python:3.11
 category: awk
 level: intermediate
-goal: "Master awk for data analysis, calculations, and reporting"
+goal: "Calculate reports using awk"
 description: |
-  Learn to use awk for real-world data analysis tasks including revenue
-  calculations, commission tracking, inventory management, and regional
-  sales summaries. Work with CSV files and custom delimited formats.
+  ## Scenario
+  Calculate sales reports using awk.
+  
+  File: /tmp/labs/sales.csv
+  
+  ## Tasks
+  1. Calculate revenue → /tmp/labs/revenue.txt
+  2. Calculate totals by status → /tmp/labs/orders-by-status.txt
+  
+  ## Validation
+  Run `v` to check
 
 setup:
-  - "chmod +x /setup/setup.sh && /setup/setup.sh"
+  - 'python3 /setup/setup.py'
 validate:
-  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+  - 'python3 /validate/validate.py'
 hints:
-  - "Use 'awk -F',' for CSV files"
-  - "Fields are $1, $2, $3... with $0 as entire line"
-  - "Use {print} block for pattern matching and actions"
-  - "Use END block for summaries and totals"
-  - "Use associative arrays: array[key]++ or array[key] += value"
-  - "Math operations: +, -, *, /, % work directly in awk"
+  - 'awk -F"|" "{print $3}" /tmp/labs/sales.csv'

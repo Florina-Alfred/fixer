@@ -3,6 +3,7 @@ package tui
 import (
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -27,10 +28,18 @@ const (
 type ContainerState int
 
 const (
-	StateStopped ContainerState = iota
-	StateIdle                   // Running but not in shell
+	StateStopped ContainerState = iota // Not started
+	StateLaunching                 // Container is starting
+	StateReady                    // Container ready
+	StateIdle                    // Running but not in shell
 	StateActive                 // Currently in shell
+	StateStopping               // Container is stopping
 )
+
+// TickTimer is a periodic timer message for polling container states.
+type TickTimer struct {
+	time.Time
+}
 
 // DockerOpComplete signals a Docker operation finished.
 type DockerOpComplete struct {
@@ -60,6 +69,7 @@ type LabWithState struct {
 	Lab       labs.Lab
 	State     ContainerState
 	Container string
+	Validated bool // true if validation passed
 }
 
 // ToolGroup groups labs by category.
@@ -82,6 +92,7 @@ type Model struct {
 	validationResults []CheckResult
 	lastValidation    *ValidationResult
 	styles            *styles
+	labDir            string // path to labs directory
 	leftWidth         int
 	rightWidth        int
 	bottomHeight      int
@@ -111,6 +122,10 @@ type styles struct {
 	unselectedTask lipgloss.Style
 	activeLab      lipgloss.Style
 	idleLab        lipgloss.Style
+	launchingLab  lipgloss.Style
+	readyLab      lipgloss.Style
+	stoppingLab   lipgloss.Style
+	validatedLab lipgloss.Style
 	stoppedLab     lipgloss.Style
 	title          lipgloss.Style
 	bottomBarMode  lipgloss.Style
@@ -236,6 +251,22 @@ func defaultStyles() *styles {
 		Foreground(nord14).
 		Bold(true)
 
+	s.launchingLab = lipgloss.NewStyle().
+		Foreground(nord9).
+		Bold(true)
+
+	s.readyLab = lipgloss.NewStyle().
+		Foreground(nord8).
+		Bold(true)
+
+	s.stoppingLab = lipgloss.NewStyle().
+		Foreground(nord14).
+		Bold(true)
+
+	s.validatedLab = lipgloss.NewStyle().
+		Foreground(nord15).
+		Bold(true)
+
 	s.stoppedLab = lipgloss.NewStyle().
 		Foreground(nord3)
 
@@ -312,13 +343,14 @@ func groupLabsByCategory(labsList []labs.Lab) []ToolGroup {
 }
 
 // NewModel creates a new application model.
-func NewModel(labsList []labs.Lab) *Model {
+func NewModel(labsList []labs.Lab, labDir string) *Model {
 	m := &Model{
 		mode:            ModeTUI,
 		toolGroups:      groupLabsByCategory(labsList),
 		selectedToolIdx: 0,
 		selectedLabIdx:  0,
 		dockerCli:       docker.New(),
+		labDir:          labDir,
 	}
 	m.initStyles()
 	return m
@@ -361,6 +393,17 @@ func (m *Model) getCurrentContainerName() string {
 	return containerNamePrefix + normalizeName(lab.Lab.Name)
 }
 
+// getCurrentLabPath returns the path to the lab directory on the host.
+func (m *Model) getCurrentLabPath() string {
+	if len(m.toolGroups) == 0 || len(m.toolGroups[m.selectedToolIdx].Labs) == 0 {
+		return ""
+	}
+	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx]
+	category := lab.Lab.Category
+	labName := normalizeName(lab.Lab.Name)
+	return m.labDir + "/" + category + "/" + labName
+}
+
 // normalizeName converts a lab name to a valid container name.
 func normalizeName(name string) string {
 	result := ""
@@ -378,7 +421,7 @@ func normalizeName(name string) string {
 
 // Init implements tea.Model.
 func (m *Model) Init() tea.Cmd {
-	return nil
+	return m.startTickTimer()
 }
 
 // Update implements tea.Model.
@@ -409,6 +452,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.BlurMsg:
 		return m, nil
+
+	case TickTimer:
+		return m.handleTick()
 	}
 
 	return m, nil
@@ -468,6 +514,18 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.validateLab()
 
 	case "e":
+		// Check current state first
+		if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+			state := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].State
+			if state == StateLaunching {
+				m.log("Container is still launching, please wait...")
+				return m, nil
+			}
+			if state == StateStopping {
+				m.log("Container is stopping, please wait...")
+				return m, nil
+			}
+		}
 		if !m.hasRunningContainer() {
 			m.log("No container running. Start a lab first.")
 			return m, nil
@@ -481,7 +539,7 @@ func (m *Model) handleTUIKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.log("Exiting TUI to open shell...")
-		m.setContainerActive(true)
+		m.setContainerState(StateActive)
 		m.shellRequested = true
 		return m, tea.Quit
 
@@ -502,7 +560,7 @@ func (m *Model) hasRunningContainer() bool {
 		return false
 	}
 	lab := m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx]
-	return lab.State == StateIdle || lab.State == StateActive
+	return lab.State == StateReady || lab.State == StateIdle || lab.State == StateActive
 }
 
 func (m *Model) setContainerActive(active bool) {
@@ -512,6 +570,12 @@ func (m *Model) setContainerActive(active bool) {
 		} else {
 			m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].State = StateIdle
 		}
+	}
+}
+
+func (m *Model) setContainerState(state ContainerState) {
+	if len(m.toolGroups) > 0 && len(m.toolGroups[m.selectedToolIdx].Labs) > 0 {
+		m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].State = state
 	}
 }
 
@@ -565,6 +629,7 @@ func (m *Model) handleDockerComplete(msg DockerOpComplete) {
 					Checks: m.validationResults,
 				}
 				if allPassed {
+					m.toolGroups[m.selectedToolIdx].Labs[m.selectedLabIdx].Validated = true
 					m.log("All validation checks passed!")
 				} else {
 					m.log("Validation failed:")
@@ -580,8 +645,12 @@ func (m *Model) handleDockerComplete(msg DockerOpComplete) {
 			}
 		}
 	} else if msg.Op == "start" && msg.Err == nil {
-		m.setContainerActive(false)
-		m.log("Container started and ready")
+		m.setContainerState(StateReady)
+		m.log("Container ready")
+	} else if msg.Op == "stop" && msg.Err == nil {
+		m.setContainerState(StateStopped)
+	} else if msg.Op == "reset" && msg.Err == nil {
+		m.setContainerState(StateStopped)
 	}
 }
 
@@ -605,7 +674,7 @@ func (m *Model) startLab() (tea.Model, tea.Cmd) {
 		running, _ := m.dockerCli.IsRunning(containerName)
 		if running {
 			m.log("Container already running: " + containerName)
-			m.setContainerActive(false)
+			m.setContainerState(StateReady)
 			return m, nil
 		}
 	}
@@ -613,18 +682,34 @@ func (m *Model) startLab() (tea.Model, tea.Cmd) {
 	_ = m.dockerCli.CleanUp(containerName)
 
 	m.log("Starting container for lab: " + lab.Name)
+	m.setContainerState(StateLaunching)
 	return m, func() tea.Msg {
 		id, err := m.dockerCli.Start(lab.Image, containerName)
 		if err != nil {
 			return DockerOpComplete{Op: "start", Err: err, ID: id}
 		}
 
+		// Copy setup files into container
+		labPath := m.getCurrentLabPath()
+		m.log("Lab path: " + labPath)
+		if labPath != "" {
+			copyErr := m.dockerCli.CopySetup(containerName, labPath)
+			if copyErr != nil {
+				m.log("ERROR copying setup: " + copyErr.Error())
+			} else {
+				m.log("Setup files copied")
+			}
+		}
+
 		// Run setup commands if any
 		if len(lab.Setup) > 0 {
+			m.log("Running setup: " + lab.Setup[0])
 			setupErr := m.dockerCli.Setup(containerName, lab.Setup)
 			if setupErr != nil {
+				m.log("Setup error: " + setupErr.Error())
 				return DockerOpComplete{Op: "setup", Err: setupErr, ID: id}
 			}
+			m.log("Setup complete")
 		}
 
 		return DockerOpComplete{Op: "start", Err: nil, ID: id}
@@ -658,6 +743,7 @@ func (m *Model) stopLab() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	m.setContainerState(StateStopping)
 	m.log("Stopping container: " + containerName)
 	return m, func() tea.Msg {
 		err := m.dockerCli.CleanUp(containerName)
@@ -665,7 +751,6 @@ func (m *Model) stopLab() (tea.Model, tea.Cmd) {
 			m.log("Failed to stop container: " + err.Error())
 			return DockerOpComplete{Op: "stop", Err: err}
 		}
-		m.setContainerStateStopped()
 		m.log("Container stopped and removed")
 		return DockerOpComplete{Op: "stop", Err: nil}
 	}
@@ -726,6 +811,33 @@ func (m *Model) ContainerName() string {
 	return m.getCurrentContainerName()
 }
 
+// GetRunningContainers returns all running container names for cleanup.
+func (m *Model) GetRunningContainers() []string {
+	var names []string
+	for i := range m.toolGroups {
+		for j := range m.toolGroups[i].Labs {
+			state := m.toolGroups[i].Labs[j].State
+			if state == StateReady || state == StateIdle {
+				names = append(names, containerNamePrefix+normalizeName(m.toolGroups[i].Labs[j].Lab.Name))
+			}
+		}
+	}
+	return names
+}
+
+// CleanupContainers stops all running containers.
+func (m *Model) CleanupContainers() {
+	d := docker.New()
+	for _, name := range m.GetRunningContainers() {
+		d.CleanUp(name)
+	}
+}
+
+// SetContainerIdle sets the current container state to Idle after shell exits.
+func (m *Model) SetContainerIdle() {
+	m.setContainerState(StateIdle)
+}
+
 // truncate renders text to fit within n runes.
 func truncate(s string, n int) string {
 	if utf8.RuneCountInString(s) <= n {
@@ -745,4 +857,35 @@ func centerPad(s string, width int) string {
 	left := totalPad / 2
 	right := totalPad - left
 	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
+}
+
+func (m *Model) startTickTimer() tea.Cmd {
+	return tea.Every(time.Second, func(t time.Time) tea.Msg {
+		return TickTimer{t}
+	})
+}
+
+func (m *Model) handleTick() (tea.Model, tea.Cmd) {
+	// Check if any container is in launching state
+	for i := range m.toolGroups {
+		for j := range m.toolGroups[i].Labs {
+			state := m.toolGroups[i].Labs[j].State
+			containerName := containerNamePrefix + normalizeName(m.toolGroups[i].Labs[j].Lab.Name)
+
+			if state == StateLaunching {
+				running, _ := m.dockerCli.IsRunning(containerName)
+				if running {
+					m.toolGroups[i].Labs[j].State = StateReady
+					m.log("Container ready: " + m.toolGroups[i].Labs[j].Lab.Name)
+				}
+			} else if state == StateStopping {
+				running, _ := m.dockerCli.IsRunning(containerName)
+				if !running {
+					m.toolGroups[i].Labs[j].State = StateStopped
+					m.log("Container stopped: " + m.toolGroups[i].Labs[j].Lab.Name)
+				}
+			}
+		}
+	}
+	return m, m.startTickTimer()
 }

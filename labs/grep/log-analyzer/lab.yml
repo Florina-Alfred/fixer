@@ -1,44 +1,25 @@
 name: Log Analyzer
-image: alpine:latest
+image: python:3.11
 category: grep
 level: intermediate
-goal: Analyze web server logs using grep to find error patterns, IP addresses, and suspicious activity
-description: Learn to use grep for log analysis. Extract error messages, identify suspicious IPs, and filter logs by date and pattern.
+goal: "Analyze web logs: extract errors, find 4xx IPs, identify suspicious IP"
+description: |
+  ## Scenario
+  Analyze web server logs to find attackers.
+  
+  Log files: /tmp/labs/access.log, /tmp/labs/error.log
+  
+  ## Tasks
+  1. Extract errors from error.log → /tmp/labs/errors.txt
+  2. Find 4xx requests → /tmp/labs/client_errors.txt
+  3. Identify suspicious IP 203.0.113.42 → /tmp/labs/suspicious.txt
+  
+  ## Validation
+  Run `v` to check
+
 setup:
-  - "apk add --no-cache bash curl"
-  - "mkdir -p /app/logs"
-  - "cat > /app/logs/access.log << 'EOF'"
-  - "192.168.1.100 - - [15/Mar/2024:10:15:30] \"GET /index.html HTTP/1.1\" 200 1234"
-  - "10.0.0.50 - - [15/Mar/2024:10:16:45] \"POST /api/login HTTP/1.1\" 401 89"
-  - "192.168.1.100 - - [15/Mar/2024:10:17:00] \"GET /admin HTTP/1.1\" 403 156"
-  - "203.0.113.42 - - [15/Mar/2024:10:18:22] \"GET /wp-admin HTTP/1.1\" 404 234"
-  - "10.0.0.50 - - [15/Mar/2024:10:19:10] \"POST /api/login HTTP/1.1\" 401 89"
-  - "192.168.1.105 - - [15/Mar/2024:10:20:00] \"GET /products HTTP/1.1\" 200 5678"
-  - "203.0.113.42 - - [15/Mar/2024:10:21:15] \"GET /phpmyadmin HTTP/1.1\" 404 234"
-  - "10.0.0.50 - - [15/Mar/2024:10:22:30] \"POST /api/login HTTP/1.1\" 200 456"
-  - "192.168.1.100 - - [15/Mar/2024:10:23:45] \"GET /dashboard HTTP/1.1\" 200 8901"
-  - "203.0.113.42 - - [15/Mar/2024:10:24:00] \"GET /../../../etc/passwd HTTP/1.1\" 400 0"
-  - "172.16.0.200 - - [15/Mar/2024:10:25:12] \"GET /api/users HTTP/1.1\" 500 234"
-  - "192.168.1.105 - - [15/Mar/2024:10:26:30] \"POST /api/order HTTP/1.1\" 201 789"
-  - "10.0.0.50 - - [15/Mar/2024:10:27:45] \"GET /profile HTTP/1.1\" 200 3456"
-  - "203.0.113.42 - - [15/Mar/2024:10:28:00] \"GET /admin/config HTTP/1.1\" 403 156"
-  - "172.16.0.200 - - [15/Mar/2024:10:29:15] \"POST /api/data HTTP/1.1\" 500 345"
-  - "EOF"
-  - "cat > /app/logs/error.log << 'EOF'"
-  - "[ERROR] 2024-03-15 10:16:45 - Authentication failed for user admin"
-  - "[ERROR] 2024-03-15 10:18:22 - Resource not found: /wp-admin"
-  - "[ERROR] 2024-03-15 10:21:15 - Resource not found: /phpmyadmin"
-  - "[ERROR] 2024-03-15 10:24:00 - Invalid request path detected"
-  - "[ERROR] 2024-03-15 10:25:12 - Database connection timeout"
-  - "[ERROR] 2024-03-15 10:28:00 - Unauthorized access attempt to /admin/config"
-  - "[ERROR] 2024-03-15 10:29:15 - Internal server error in /api/data endpoint"
-  - "EOF"
-  - "chmod +x /app/logs/access.log /app/logs/error.log"
+  - 'python3 /setup/setup.py'
 validate:
-  - "bash /validate/validate.sh"
+  - 'python3 /validate/validate.py'
 hints:
-  - "Use grep with -i for case-insensitive matching"
-  - "Use grep with -E for extended regex patterns"
-  - "Use grep with -v to invert matches (exclude lines)"
-  - "Use grep with -c to count matching lines"
-  - "Combine grep with wc -l to count results"
+  - 'grep ERROR /tmp/labs/error.log'

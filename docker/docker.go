@@ -2,7 +2,9 @@ package docker
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -40,6 +42,41 @@ func (c *Client) Start(image, name string) (string, error) {
 	}
 
 	return strings.TrimSpace(string(out)), nil
+}
+
+// CopySetup copies lab setup files into the container.
+func (c *Client) CopySetup(containerName, labDir string) error {
+	// Copy setup directory
+	setupSrc := filepath.Join(labDir, "setup")
+	setupDst := "/setup"
+	if _, err := os.Stat(setupSrc); err == nil {
+		// First ensure the destination directory exists
+		mkdirCmd := exec.Command("docker", "exec", containerName, "mkdir", "-p", "/setup")
+		if err := mkdirCmd.Run(); err != nil {
+			return fmt.Errorf("creating setup dir: %w", err)
+		}
+		// Then copy
+		cmd := exec.Command("docker", "cp", setupSrc+"/.", containerName+":"+setupDst)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("copying setup: %w, output: %s", err, string(out))
+		}
+	}
+
+	// Copy validate directory
+	valSrc := filepath.Join(labDir, "validate")
+	valDst := "/validate"
+	if _, err := os.Stat(valSrc); err == nil {
+		mkdirCmd := exec.Command("docker", "exec", containerName, "mkdir", "-p", "/validate")
+		if err := mkdirCmd.Run(); err != nil {
+			return fmt.Errorf("creating validate dir: %w", err)
+		}
+		cmd := exec.Command("docker", "cp", valSrc+"/.", containerName+":"+valDst)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("copying validate: %w, output: %s", err, string(out))
+		}
+	}
+
+	return nil
 }
 
 // Setup runs setup commands inside a container after it starts.

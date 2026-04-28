@@ -1,21 +1,24 @@
 name: Sed Password Rotation
-image: python:3.11-slim
+image: python:3.11
 category: sed
 level: intermediate
-goal: "Master sed for text transformation and password rotation"
+goal: "Rotate passwords using sed"
 description: |
-  Learn to use sed for real-world text transformation tasks including
-  password rotation, API key updates, and log sanitization. Practice
-  in-place editing, pattern matching, and backreferences.
+  ## Scenario
+  Rotate passwords in config files.
+  
+  Files: /tmp/labs/*.conf
+  
+  ## Tasks
+  1. Rotate database.conf → sed -i 's/OLD/NEW/g'
+  2. Rotate api-keys.conf
+  
+  ## Validation
+  Run `v` to check
 
 setup:
-  - "chmod +x /setup/setup.sh && /setup/setup.sh"
+  - 'python3 /setup/setup.py'
 validate:
-  - "chmod +x /validate/validate.sh && /validate/validate.sh"
+  - 'python3 /validate/validate.py'
 hints:
-  - "Use 'sed -i' for in-place file editing"
-  - "Use 'sed s/old/new/g' for global substitution"
-  - "Use backreferences: s/\\(pattern\\)/\\1replacement/"
-  - "Use -e flag for multiple substitutions: sed -e 's/a/b/' -e 's/c/d/'"
-  - "Escape special characters: \\., \\*, \\[, \\]"
-  - "Use word boundaries and character classes for precise matching"
+  - 'sed -i "s/OLD_PASS/NEW_PASS/g" /tmp/labs/database.conf'

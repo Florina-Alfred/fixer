@@ -37,7 +37,7 @@ func main() {
 
 	var prev *savedState
 	for {
-		m := tui.NewModel(labList)
+		m := tui.NewModel(labList, labDir)
 
 		// Restore state from previous session if available
 		if prev != nil {
@@ -53,6 +53,8 @@ func main() {
 		}
 
 		if !m.RequestShell() {
+			// Clean up all running containers before exit
+			m.CleanupContainers()
 			return
 		}
 
@@ -83,6 +85,10 @@ func main() {
 			// Container was stopped, exit
 			return
 		}
+
+		// Mark container as Idle (not Active) so it can be returned to
+		m.SetContainerIdle()
+
 		// Continue loop to restore TUI with existing state
 	}
 }

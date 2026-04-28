@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewModel(t *testing.T) {
-	m := NewModel([]labs.Lab{})
+	m := NewModel([]labs.Lab{}, "")
 	if m == nil {
 		t.Fatal("expected non-nil model")
 	}
@@ -26,7 +26,7 @@ func TestNewModel_WithLabs(t *testing.T) {
 		{Name: "Lab A", Image: "alpine:latest", Goal: "Do stuff", Category: "grep"},
 		{Name: "Lab B", Image: "nginx:latest", Goal: "Fix nginx", Category: "grep"},
 	}
-	m := NewModel(labsList)
+	m := NewModel(labsList, "")
 	if len(m.toolGroups) != 1 {
 		t.Errorf("expected 1 tool group, got %d", len(m.toolGroups))
 	}
@@ -82,7 +82,7 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	m := NewModel(nil)
+	m := NewModel(nil, "")
 
 	m.log("msg1")
 	m.log("msg2")
@@ -100,7 +100,7 @@ func TestLog(t *testing.T) {
 }
 
 func TestLog_CapsAtMax(t *testing.T) {
-	m := NewModel(nil)
+	m := NewModel(nil, "")
 
 	for i := 0; i < 300; i++ {
 		m.log("log entry")
@@ -117,7 +117,7 @@ func TestLog_CapsAtMax(t *testing.T) {
 func TestHandleDockerComplete_Start(t *testing.T) {
 	m := NewModel([]labs.Lab{
 		{Name: "Test Lab", Image: "alpine:latest", Category: "grep"},
-	})
+	}, "")
 
 	msg := DockerOpComplete{
 		Op:      "start",
@@ -140,7 +140,7 @@ func TestHandleDockerComplete_Start(t *testing.T) {
 func TestHandleDockerComplete_StartError(t *testing.T) {
 	m := NewModel([]labs.Lab{
 		{Name: "Test Lab", Image: "alpine:latest", Category: "grep"},
-	})
+	}, "")
 
 	msg := DockerOpComplete{
 		Op:      "start",
@@ -163,7 +163,7 @@ func TestHandleDockerComplete_StartError(t *testing.T) {
 func TestHandleDockerComplete_Check(t *testing.T) {
 	m := NewModel([]labs.Lab{
 		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"check1", "check2"}},
-	})
+	}, "")
 
 	// First check passes
 	m.handleDockerComplete(DockerOpComplete{
@@ -206,7 +206,7 @@ func TestHandleDockerComplete_Check(t *testing.T) {
 func TestHandleDockerComplete_CheckFail(t *testing.T) {
 	m := NewModel([]labs.Lab{
 		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"check1", "check2"}},
-	})
+	}, "")
 
 	// Both fail
 	m.handleDockerComplete(DockerOpComplete{
@@ -238,7 +238,7 @@ func TestHandleDockerComplete_CheckFail(t *testing.T) {
 func TestHandleDockerComplete_CheckCommandAssociation(t *testing.T) {
 	m := NewModel([]labs.Lab{
 		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"test -f /tmp/solved", "curl -f http://localhost"}},
-	})
+	}, "")
 
 	for _, check := range m.toolGroups[0].Labs[0].Lab.Validate {
 		m.handleDockerComplete(DockerOpComplete{
@@ -262,7 +262,7 @@ func TestHandleDockerComplete_CheckCommandAssociation(t *testing.T) {
 func TestHandleDockerComplete_CheckNotAllDone(t *testing.T) {
 	m := NewModel([]labs.Lab{
 		{Name: "Test Lab", Image: "alpine:latest", Category: "grep", Validate: []string{"a", "b", "c"}},
-	})
+	}, "")
 
 	// Only 2 of 3 checks done
 	m.handleDockerComplete(DockerOpComplete{
@@ -287,7 +287,7 @@ func TestHandleDockerComplete_CheckNotAllDone(t *testing.T) {
 func TestContainerStates(t *testing.T) {
 	m := NewModel([]labs.Lab{
 		{Name: "Lab A", Image: "alpine:latest", Category: "grep"},
-	})
+	}, "")
 
 	// Initial state should be stopped
 	if m.toolGroups[0].Labs[0].State != StateStopped {
